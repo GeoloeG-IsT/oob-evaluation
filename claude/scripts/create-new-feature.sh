@@ -29,7 +29,7 @@ fi
 
 # Get repository root
 REPO_ROOT=$(git rev-parse --show-toplevel)
-SPECS_DIR="$REPO_ROOT/specs"
+SPECS_DIR="$REPO_ROOT/claude/specs"
 
 # Create specs directory if it doesn't exist
 mkdir -p "$SPECS_DIR"
@@ -75,7 +75,7 @@ FEATURE_DIR="$SPECS_DIR/$BRANCH_NAME"
 mkdir -p "$FEATURE_DIR"
 
 # Copy template if it exists
-TEMPLATE="$REPO_ROOT/templates/spec-template.md"
+TEMPLATE="$REPO_ROOT/claude/templates/spec-template.md"
 SPEC_FILE="$FEATURE_DIR/spec.md"
 
 if [ -f "$TEMPLATE" ]; then

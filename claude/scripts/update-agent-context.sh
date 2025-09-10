@@ -7,12 +7,12 @@ set -e
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-FEATURE_DIR="$REPO_ROOT/specs/$CURRENT_BRANCH"
+FEATURE_DIR="$REPO_ROOT/claude/specs/$CURRENT_BRANCH"
 NEW_PLAN="$FEATURE_DIR/plan.md"
 
 # Determine which agent context files to update
-CLAUDE_FILE="$REPO_ROOT/CLAUDE.md"
-GEMINI_FILE="$REPO_ROOT/GEMINI.md"
+CLAUDE_FILE="$REPO_ROOT/claude/CLAUDE.md"
+GEMINI_FILE="$REPO_ROOT/gemini/GEMINI.md"
 COPILOT_FILE="$REPO_ROOT/.github/copilot-instructions.md"
 
 # Allow override via argument
@@ -47,15 +47,15 @@ update_agent_file() {
         echo "Creating new $agent_name context file..."
         
         # Check if this is the SDD repo itself
-        if [ -f "$REPO_ROOT/templates/agent-file-template.md" ]; then
-            cp "$REPO_ROOT/templates/agent-file-template.md" "$temp_file"
+        if [ -f "$REPO_ROOT/claude/templates/agent-file-template.md" ]; then
+            cp "$REPO_ROOT/claude/templates/agent-file-template.md" "$temp_file"
         else
-            echo "ERROR: Template not found at $REPO_ROOT/templates/agent-file-template.md"
+            echo "ERROR: Template not found at $REPO_ROOT/claude/templates/agent-file-template.md"
             return 1
         fi
         
         # Replace placeholders
-        sed -i.bak "s/\[PROJECT NAME\]/$(basename $REPO_ROOT)/" "$temp_file"
+        sed -i.bak "s/\[PROJECT NAME\]/$(basename $REPO_ROOT)/claude/" "$temp_file"
         sed -i.bak "s/\[DATE\]/$(date +%Y-%m-%d)/" "$temp_file"
         sed -i.bak "s/\[EXTRACTED FROM ALL PLAN.MD FILES\]/- $NEW_LANG + $NEW_FRAMEWORK ($CURRENT_BRANCH)/" "$temp_file"
         
