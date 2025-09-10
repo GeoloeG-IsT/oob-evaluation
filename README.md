@@ -2,12 +2,25 @@
 
 ## Commands
 
-uvx --from git+<https://github.com/github/spec-kit.git> specify init --here --ai claude
+```bash
+uvx --from git+https://github.com/github/spec-kit.git specify init --here --ai claude
+```
 
 ## Claude prompts
 
-/specify @SPEC.md
+### Specify
+
+- /specify @SPEC.md
+-
+
+### Plan
+
+- /plan @PLAN.md
+
 =>
-/plan @PLAN.md
+
+### Tasks
+
+- /tasks @TASKS.md
+
 =>
-/tasks @TASKS.md
