@@ -1,4 +1,4 @@
-# oob-evaluation-claude
+# oob-evaluation-claude spec
 
 I would like to develop a web app to evaluate different Object Detection (ObjDet) and Segmentation (Seg) models. (Like Yolo, SAM2, mmdetection, rt-detr, etc...)
 
