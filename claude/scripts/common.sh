@@ -27,7 +27,7 @@ check_feature_branch() {
 get_feature_dir() {
     local repo_root="$1"
     local branch="$2"
-    echo "$repo_root/specs/$branch"
+    echo "$repo_root/claude/specs/$branch"
 }
 
 # Get all standard paths for a feature
@@ -38,7 +38,7 @@ get_feature_paths() {
     local current_branch=$(get_current_branch)
     local feature_dir=$(get_feature_dir "$repo_root" "$current_branch")
     
-    echo "REPO_ROOT='$repo_root'"
+    echo "REPO_ROOT='$repo_root'/claude"
     echo "CURRENT_BRANCH='$current_branch'"
     echo "FEATURE_DIR='$feature_dir'"
     echo "FEATURE_SPEC='$feature_dir/spec.md'"
