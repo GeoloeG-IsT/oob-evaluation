@@ -1,3 +1,5 @@
+# oob-evaluation-claude
+
 I would like to develop a web app to evaluate different Object Detection (ObjDet) and Segmentation (Seg) models. (Like Yolo, SAM2, mmdetection, rt-detr, etc...)
 
 It should be possible to upload images to the server before any kind of processing and view them in the app.
