@@ -1,0 +1,29 @@
+[flake8]
+max-line-length = 88
+max-complexity = 10
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    migrations,
+    .pytest_cache,
+    build,
+    dist
+
+# Error codes to ignore
+ignore = 
+    E203,  # whitespace before ':'
+    E501,  # line too long (handled by black)
+    W503,  # line break before binary operator
+
+# Error codes to always report
+select = 
+    E,    # pycodestyle errors
+    W,    # pycodestyle warnings
+    F,    # pyflakes
+    C,    # complexity
+
+per-file-ignores =
+    __init__.py:F401  # imported but unused
+    tests/*:F401,F811  # test imports
