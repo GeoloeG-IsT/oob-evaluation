@@ -1,0 +1,87 @@
+version: '3.8'
+
+# Development overrides for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # Development database with exposed ports
+  db:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ml_eval_platform_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  # Redis with exposed port for debugging
+  redis:
+    ports:
+      - "6379:6379"
+
+  # Backend with development settings
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    volumes:
+      - ./backend:/app:cached
+      - ./data:/app/data:cached
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform_dev
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=DEBUG
+      - RELOAD=true
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+
+  # Frontend with development settings
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+      target: base
+    volumes:
+      - ./frontend:/app:cached
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    command: npm run dev
+    ports:
+      - "3000:3000"
+
+  # Single celery worker for development
+  celery-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery
+    volumes:
+      - ./celery:/app:cached
+      - ./data:/app/data:cached
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform_dev
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=DEBUG
+    command: celery -A src.celery_app worker --loglevel=debug --concurrency=1
+    depends_on:
+      - db
+      - redis
+
+  # Remove production celery workers in dev
+  celery-training:
+    profiles: ["production"]
+  celery-inference:
+    profiles: ["production"]
+  celery-evaluation:
+    profiles: ["production"]
+  celery-deployment:
+    profiles: ["production"]
+
+  # Flower monitoring for development
+  flower:
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
