@@ -39,8 +39,6 @@ ENV/
 .env/
 
 # IDE and editors
-.vscode/
-.idea/
 *.swp
 *.swo
 *~
@@ -85,15 +83,15 @@ logs/
 *.sqlite3
 
 # ML Models and data
-models/
-data/
-datasets/
-*.pkl
-*.joblib
-*.h5
-*.pt
-*.pth
-*.onnx
+# models/
+# data/
+# datasets/
+# *.pkl
+# *.joblib
+# *.h5
+# *.pt
+# *.pth
+# *.onnx
 
 # Temporary files
 tmp/
