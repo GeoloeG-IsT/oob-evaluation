@@ -1,4 +1,3 @@
-version: '3.8'
 
 # Production Docker Compose Configuration
 # For deployment to Google Cloud Run or other production environments

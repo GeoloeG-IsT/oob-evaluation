@@ -1,7 +1,6 @@
 # Docker Compose override for T085 validation environment
 # This extends the main docker-compose.yml with validation-specific configurations
 
-version: '3.8'
 
 services:
   # Enhanced backend with validation-friendly settings

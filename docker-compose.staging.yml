@@ -1,4 +1,3 @@
-version: '3.8'
 
 # Staging Docker Compose Configuration
 # Mimics production but with relaxed settings for testing
