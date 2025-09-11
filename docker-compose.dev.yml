@@ -1,87 +1,333 @@
 version: '3.8'
 
-# Development overrides for docker-compose.yml
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Development Docker Compose Configuration
+# For local development with hot reloading and debugging
 
 services:
-  # Development database with exposed ports
+  # PostgreSQL Database
   db:
-    ports:
-      - "5432:5432"
+    image: postgres:15
     environment:
       POSTGRES_DB: ml_eval_platform_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    volumes:
+      - dev_postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ml_eval_platform_dev"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
 
-  # Redis with exposed port for debugging
+  # Redis for Celery
   redis:
+    image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - dev_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
 
-  # Backend with development settings
+  # Backend API (Development with hot reload)
   backend:
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
-    volumes:
-      - ./backend:/app:cached
-      - ./data:/app/data:cached
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform_dev
-      - REDIS_URL=redis://redis:6379/0
-      - LOG_LEVEL=DEBUG
-      - RELOAD=true
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+      target: development
     ports:
       - "8000:8000"
+      - "5678:5678"  # Debugger port
+    env_file:
+      - .env.development
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform_dev
+      - REDIS_URL=redis://redis:6379/0
+      - BACKEND_URL=http://backend:8000
+      - FRONTEND_URL=http://frontend:3000
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - RELOAD_ON_CHANGE=true
+      - PYTHONPATH=/app
+    volumes:
+      - ./data/models:/app/data/models
+      - ./data/images:/app/data/images
+      - ./data/datasets:/app/data/datasets
+      - ./data/temp:/app/data/temp
+      - ./backend/src:/app/src  # Hot reload for development
+      - ./backend/tests:/app/tests
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
 
-  # Frontend with development settings
+  # Celery Workers for Training (Development)
+  celery-training:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery
+      target: development
+    command: celery -A src.celery_app worker --loglevel=debug --queue=training --concurrency=1
+    env_file:
+      - .env.development
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform_dev
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - PYTHONPATH=/app
+    volumes:
+      - ./data/models:/app/data/models
+      - ./data/images:/app/data/images
+      - ./data/datasets:/app/data/datasets
+      - ./data/temp:/app/data/temp
+      - ./backend/src:/app/src  # Hot reload
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "src.celery_app", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # Celery Workers for Inference (Development)
+  celery-inference:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery
+      target: development
+    command: celery -A src.celery_app worker --loglevel=debug --queue=inference --concurrency=2
+    env_file:
+      - .env.development
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform_dev
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - PYTHONPATH=/app
+    volumes:
+      - ./data/models:/app/data/models
+      - ./data/images:/app/data/images
+      - ./data/datasets:/app/data/datasets
+      - ./data/temp:/app/data/temp
+      - ./backend/src:/app/src  # Hot reload
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "src.celery_app", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # Celery Workers for Evaluation (Development)
+  celery-evaluation:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery
+      target: development
+    command: celery -A src.celery_app worker --loglevel=debug --queue=evaluation --concurrency=1
+    env_file:
+      - .env.development
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform_dev
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - PYTHONPATH=/app
+    volumes:
+      - ./data/models:/app/data/models
+      - ./data/images:/app/data/images
+      - ./data/datasets:/app/data/datasets
+      - ./data/temp:/app/data/temp
+      - ./backend/src:/app/src  # Hot reload
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "src.celery_app", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # Celery Workers for Deployment (Development)
+  celery-deployment:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery
+      target: development
+    command: celery -A src.celery_app worker --loglevel=debug --queue=deployment --concurrency=1
+    env_file:
+      - .env.development
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform_dev
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - PYTHONPATH=/app
+    volumes:
+      - ./data/models:/app/data/models
+      - ./data/images:/app/data/images
+      - ./data/temp:/app/data/temp
+      - ./backend/src:/app/src  # Hot reload
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "src.celery_app", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # Frontend (Next.js Development)
   frontend:
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
-      target: base
-    volumes:
-      - ./frontend:/app:cached
-      - /app/node_modules
+      target: development
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.development
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - CHOKIDAR_USEPOLLING=true
-    command: npm run dev
-    ports:
-      - "3000:3000"
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+      - NEXT_PUBLIC_APP_NAME="ML Evaluation Platform (Development)"
+      - NEXT_PUBLIC_APP_VERSION=1.0.0
+      - CHOKIDAR_USEPOLLING=true  # For file watching in Docker
+    volumes:
+      - ./frontend:/app  # Hot reload for frontend
+      - /app/node_modules  # Preserve node_modules
+      - /app/.next  # Preserve Next.js cache
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
 
-  # Single celery worker for development
-  celery-dev:
+  # Celery Flower (Monitoring)
+  flower:
     build:
       context: .
       dockerfile: docker/Dockerfile.celery
-    volumes:
-      - ./celery:/app:cached
-      - ./data:/app/data:cached
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform_dev
-      - REDIS_URL=redis://redis:6379/0
-      - LOG_LEVEL=DEBUG
-    command: celery -A src.celery_app worker --loglevel=debug --concurrency=1
-    depends_on:
-      - db
-      - redis
-
-  # Remove production celery workers in dev
-  celery-training:
-    profiles: ["production"]
-  celery-inference:
-    profiles: ["production"]
-  celery-evaluation:
-    profiles: ["production"]
-  celery-deployment:
-    profiles: ["production"]
-
-  # Flower monitoring for development
-  flower:
+      target: development
+    command: celery -A src.celery_app flower --port=5555 --basic_auth=admin:dev123
     ports:
       - "5555:5555"
+    env_file:
+      - .env.development
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend/src:/app/src
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # Database Admin (pgAdmin)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ml-eval.local
+      PGADMIN_DEFAULT_PASSWORD: dev123
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    volumes:
+      - dev_pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # Redis Commander (Redis Admin)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # Jupyter Notebook (For ML experimentation)
+  jupyter:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.jupyter
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=dev123
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/home/jovyan/work/data
+      - ./backend/src:/home/jovyan/work/src:ro
+    restart: unless-stopped
+
+volumes:
+  dev_postgres_data:
+  dev_redis_data:
+  dev_pgadmin_data:
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
+
+# Development-specific logging (verbose)
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"

@@ -1,0 +1,83 @@
+# Production-optimized Celery workers for GCP Cloud Run
+# Multi-stage build with GPU support for ML workloads
+
+# Build stage
+FROM python:3.11-slim as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy and install Python dependencies
+COPY celery/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Production stage
+FROM python:3.11-slim as production
+
+# Install runtime dependencies for ML and GPU support
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    libgl1-mesa-glx \
+    libgl1-mesa-dev \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    curl \
+    gnupg2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user
+RUN groupadd -r celeryuser -g 1000 && \
+    useradd -r -g celeryuser -u 1000 -s /bin/bash -c "Celery User" celeryuser
+
+# Copy virtual environment from builder stage
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Set working directory
+WORKDIR /app
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/data/models /app/data/images /app/data/.torch /app/logs \
+    && chown -R celeryuser:celeryuser /app
+
+# Copy application code
+COPY --chown=celeryuser:celeryuser celery/ .
+
+# Security hardening
+RUN chmod -R 755 /app \
+    && chmod -R 700 /app/data \
+    && find /app -name "*.py" -exec chmod 644 {} \;
+
+# Switch to non-root user
+USER celeryuser
+
+# Set environment variables for production
+ENV PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    TORCH_HOME=/app/data/.torch \
+    C_FORCE_ROOT=0 \
+    CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=True \
+    CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS='{"socket_keepalive": true, "socket_keepalive_options": {"TCP_KEEPIDLE": 1, "TCP_KEEPINTVL": 3, "TCP_KEEPCNT": 5}}' \
+    ENV=production
+
+# Health check for Celery workers
+HEALTHCHECK --interval=60s --timeout=30s --start-period=30s --retries=3 \
+    CMD celery -A src.celery_app inspect ping -d celery@$(hostname) || exit 1
+
+# Default command (can be overridden for different worker types)
+CMD ["celery", "-A", "src.celery_app", "worker", "--loglevel=info", "--concurrency=1", "--max-tasks-per-child=10"]

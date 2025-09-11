@@ -1,0 +1,393 @@
+version: '3.8'
+
+# Staging Docker Compose Configuration
+# Mimics production but with relaxed settings for testing
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ml_eval_platform_staging
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${STAGING_DB_PASSWORD:-staging_password}
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ml_eval_platform_staging"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${STAGING_REDIS_PASSWORD:-staging_redis_password}
+    ports:
+      - "6379:6379"
+    volumes:
+      - staging_redis_data:/data
+      - ./docker/redis/redis.staging.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${STAGING_REDIS_PASSWORD:-staging_redis_password}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend.prod
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.staging
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgresql://postgres:${STAGING_DB_PASSWORD:-staging_password}@db:5432/ml_eval_platform_staging
+      - REDIS_URL=redis://:${STAGING_REDIS_PASSWORD:-staging_redis_password}@redis:6379/0
+      - BACKEND_URL=http://backend:8000
+      - FRONTEND_URL=http://frontend:3000
+      - USE_SECRET_MANAGER=${USE_SECRET_MANAGER:-false}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+    volumes:
+      - ./data/staging/models:/app/models
+      - ./data/staging/images:/app/images
+      - ./data/staging/datasets:/app/datasets
+      - ./data/staging/temp:/tmp/ml-eval
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 2G
+          cpus: '1'
+
+  # Celery Workers for Training
+  celery-training:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery.prod
+    command: celery -A src.celery_app worker --loglevel=info --queue=training --concurrency=1 --max-tasks-per-child=10
+    env_file:
+      - .env.staging
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgresql://postgres:${STAGING_DB_PASSWORD:-staging_password}@db:5432/ml_eval_platform_staging
+      - REDIS_URL=redis://:${STAGING_REDIS_PASSWORD:-staging_redis_password}@redis:6379/0
+      - USE_SECRET_MANAGER=${USE_SECRET_MANAGER:-false}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+    volumes:
+      - ./data/staging/models:/app/models
+      - ./data/staging/images:/app/images
+      - ./data/staging/datasets:/app/datasets
+      - ./data/staging/temp:/tmp/ml-eval
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "src.celery_app", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
+        reservations:
+          memory: 4G
+          cpus: '2'
+
+  # Celery Workers for Inference
+  celery-inference:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery.prod
+    command: celery -A src.celery_app worker --loglevel=info --queue=inference --concurrency=2 --max-tasks-per-child=50
+    env_file:
+      - .env.staging
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgresql://postgres:${STAGING_DB_PASSWORD:-staging_password}@db:5432/ml_eval_platform_staging
+      - REDIS_URL=redis://:${STAGING_REDIS_PASSWORD:-staging_redis_password}@redis:6379/0
+      - USE_SECRET_MANAGER=${USE_SECRET_MANAGER:-false}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+    volumes:
+      - ./data/staging/models:/app/models
+      - ./data/staging/images:/app/images
+      - ./data/staging/datasets:/app/datasets
+      - ./data/staging/temp:/tmp/ml-eval
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "src.celery_app", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '3'
+        reservations:
+          memory: 3G
+          cpus: '1.5'
+
+  # Celery Workers for Evaluation
+  celery-evaluation:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery.prod
+    command: celery -A src.celery_app worker --loglevel=info --queue=evaluation --concurrency=1 --max-tasks-per-child=20
+    env_file:
+      - .env.staging
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgresql://postgres:${STAGING_DB_PASSWORD:-staging_password}@db:5432/ml_eval_platform_staging
+      - REDIS_URL=redis://:${STAGING_REDIS_PASSWORD:-staging_redis_password}@redis:6379/0
+      - USE_SECRET_MANAGER=${USE_SECRET_MANAGER:-false}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+    volumes:
+      - ./data/staging/models:/app/models
+      - ./data/staging/images:/app/images
+      - ./data/staging/datasets:/app/datasets
+      - ./data/staging/temp:/tmp/ml-eval
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "src.celery_app", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 2G
+          cpus: '1'
+
+  # Celery Workers for Deployment
+  celery-deployment:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery.prod
+    command: celery -A src.celery_app worker --loglevel=info --queue=deployment --concurrency=1 --max-tasks-per-child=10
+    env_file:
+      - .env.staging
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgresql://postgres:${STAGING_DB_PASSWORD:-staging_password}@db:5432/ml_eval_platform_staging
+      - REDIS_URL=redis://:${STAGING_REDIS_PASSWORD:-staging_redis_password}@redis:6379/0
+      - USE_SECRET_MANAGER=${USE_SECRET_MANAGER:-false}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+    volumes:
+      - ./data/staging/models:/app/models
+      - ./data/staging/temp:/tmp/ml-eval
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "src.celery_app", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend.prod
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.staging
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+      - NEXT_PUBLIC_APP_NAME="ML Evaluation Platform (Staging)"
+      - NEXT_PUBLIC_APP_VERSION=1.0.0
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Celery Flower (monitoring)
+  flower:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery.prod
+    command: celery -A src.celery_app flower --port=5555 --basic_auth=${STAGING_FLOWER_AUTH:-admin:staging123}
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env.staging
+    environment:
+      - ENVIRONMENT=staging
+      - REDIS_URL=redis://:${STAGING_REDIS_PASSWORD:-staging_redis_password}@redis:6379/0
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+
+  # Prometheus Monitoring (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.staging.yml:/etc/prometheus/prometheus.yml:ro
+      - staging_prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Grafana Dashboard (optional)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${STAGING_GRAFANA_PASSWORD:-staging123}
+      - GF_SECURITY_ADMIN_USER=admin
+    volumes:
+      - staging_grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f localhost:3000/api/health && echo 'ready'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+
+volumes:
+  staging_postgres_data:
+  staging_redis_data:
+  staging_prometheus_data:
+  staging_grafana_data:
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# Staging-specific logging
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "50m"
+    max-file: "3"
