@@ -1,0 +1,52 @@
+# Celery workers with ML dependencies
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for ML processing
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash celery-user
+
+# Copy requirements and install Python dependencies
+COPY celery/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create directories for models and data
+RUN mkdir -p /app/data/models /app/data/images /app/data/.torch
+RUN chown -R celery-user:celery-user /app/data
+
+# Copy celery application code
+COPY celery/ .
+
+# Set ownership
+RUN chown -R celery-user:celery-user /app
+
+# Switch to non-root user  
+USER celery-user
+
+# Set environment variables
+ENV PYTHONPATH=/app/src
+ENV CUDA_VISIBLE_DEVICES=0
+ENV TORCH_HOME=/app/data/.torch
+ENV C_FORCE_ROOT=1
+
+# Health check for celery workers
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD celery -A src.celery_app inspect ping || exit 1
+
+# Default command (can be overridden)
+CMD ["celery", "-A", "src.celery_app", "worker", "--loglevel=info"]
