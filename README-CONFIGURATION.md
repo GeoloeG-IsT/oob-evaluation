@@ -42,11 +42,17 @@ backend/src/core/
 # Copy template and customize
 cp .env.template .env.local
 
+# Activate virtual environment
+source backend/venv/bin/activate
+
+# Install dependencies
+pip install -r backend/requirements.txt
+
 # Generate secure keys
-python backend/src/core/config_validator.py generate
+PYTHONPATH=backend/src python backend/src/core/config_validator.py generate
 
 # Validate configuration
-python backend/src/core/config_validator.py validate
+PYTHONPATH=backend/src python backend/src/core/config_validator.py validate
 ```
 
 ### 2. Start Development Services
@@ -66,7 +72,7 @@ docker-compose -f docker-compose.dev.yml ps
 python -c "from backend.src.core.config import get_settings; print(f'Environment: {get_settings().app.environment}')"
 
 # Check connectivity
-python backend/src/core/config_validator.py connectivity
+PYTHONPATH=backend/src python backend/src/core/config_validator.py connectivity
 ```
 
 ## 📝 Configuration Files
@@ -175,6 +181,7 @@ python backend/src/core/secrets_manager.py get SECRET_KEY your-project-id
 ### Secret Manager Integration
 
 The platform automatically retrieves secrets from GCP Secret Manager when:
+
 - `USE_SECRET_MANAGER=true`
 - `GCP_PROJECT_ID` is set
 - Application is running with proper GCP credentials
@@ -239,7 +246,7 @@ gcloud run services list --region=us-central1
 python backend/src/core/security.py report
 
 # Check network connectivity
-python backend/src/core/config_validator.py connectivity
+PYTHONPATH=backend/src python backend/src/core/config_validator.py connectivity
 ```
 
 ### Health Monitoring
@@ -333,6 +340,7 @@ python backend/src/core/security.py report
 ### Cloud Run Deployment
 
 1. **Prerequisites**
+
    ```bash
    # Enable APIs
    gcloud services enable run.googleapis.com
@@ -341,12 +349,14 @@ python backend/src/core/security.py report
    ```
 
 2. **Infrastructure Setup**
+
    ```bash
    cd gcp/terraform
    terraform apply -var="project_id=your-project-id"
    ```
 
 3. **Application Deployment**
+
    ```bash
    # Build and deploy
    gcloud builds submit --config=gcp/cloudbuild.yml .
@@ -387,6 +397,7 @@ autoscaling.knative.dev/minScale: "1"
 ### Alerting
 
 Configure alerts for:
+
 - High error rates (>5%)
 - Slow response times (>2s)
 - Database connection failures
@@ -398,6 +409,7 @@ Configure alerts for:
 ### Common Issues
 
 #### Configuration Loading Failed
+
 ```bash
 # Check file permissions
 ls -la .env*
@@ -407,6 +419,7 @@ python backend/src/core/config_validator.py validate
 ```
 
 #### Database Connection Failed
+
 ```bash
 # Test connection
 python -c "
@@ -417,6 +430,7 @@ print('Connected successfully')
 ```
 
 #### Secrets Not Loading
+
 ```bash
 # Check GCP authentication
 gcloud auth list
@@ -426,6 +440,7 @@ python backend/src/core/secrets_manager.py list your-project-id
 ```
 
 #### GPU Not Available
+
 ```bash
 # Check NVIDIA drivers
 nvidia-smi

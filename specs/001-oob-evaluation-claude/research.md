@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This research provides comprehensive best practices for implementing an ML evaluation platform using FastAPI + Python, Next.js + React + TypeScript, Supabase/PostgreSQL, Celery, Docker + Docker Compose, and modern computer vision models (YOLO11/12, RT-DETR, SAM2). The findings focus on real-time inference, large file handling, async training pipelines, model versioning, and computer vision annotation workflows.
+This research provides comprehensive best practices for implementing an ML evaluation platform using FastAPI + Python, Next.js + React + TypeScript, PostgreSQL, Celery, Docker + Docker Compose, and modern computer vision models (YOLO11/12, RT-DETR, SAM2). The findings focus on real-time inference, large file handling, async training pipelines, model versioning, and computer vision annotation workflows.
 
 ## 1. FastAPI + Python for ML Model Inference and Training APIs
 
@@ -36,10 +36,10 @@ Next.js 14+ with React 18 and TypeScript for frontend
 - **Vue.js**: Smaller ecosystem for ML libraries
 - **Svelte**: Less mature ecosystem for enterprise ML applications
 
-## 3. Supabase/PostgreSQL for Storing Annotations, Model Metadata, and Results
+## 3. PostgreSQL for Storing Annotations, Model Metadata, and Results
 
 ### Decision
-Supabase with PostgreSQL 15+ and pgvector extension
+PostgreSQL 15+ and pgvector extension
 
 ### Rationale
 - **Vector Database Support**: Native pgvector integration for embedding storage and similarity search
@@ -115,7 +115,7 @@ Unified integration using Ultralytics framework for YOLO models, standalone RT-D
 - Memory-efficient processing pipelines
 
 ### Model Versioning and Deployment
-- Automated model registry in Supabase
+- Automated model registry in PostgreSQL
 - Docker-based model serving containers
 - A/B testing capabilities for model comparison
 - Real-time performance monitoring
@@ -138,7 +138,7 @@ This tech stack provides a robust foundation for an ML evaluation platform with:
 
 - **Scalability**: Horizontal scaling with Celery and Docker
 - **Performance**: Optimized inference with FastAPI and modern CV models
-- **Flexibility**: Supabase provides both relational and vector database capabilities
+- **Flexibility**: PostgreSQL provides both relational and vector database capabilities
 - **Developer Experience**: TypeScript and Next.js provide excellent frontend development
 - **Production Readiness**: Docker ensures consistent deployment across environments
 

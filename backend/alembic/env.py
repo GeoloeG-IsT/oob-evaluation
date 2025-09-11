@@ -4,7 +4,7 @@ Alembic environment configuration for ML Evaluation Platform.
 This module configures Alembic for database migrations with support for:
 - Async SQLAlchemy operations
 - Environment variable configuration
-- Supabase/PostgreSQL compatibility
+- PostgreSQL compatibility
 - Structured logging integration
 """
 
@@ -22,15 +22,23 @@ import structlog
 
 # Load environment variables
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Import models to ensure they're registered with SQLAlchemy
 from src.database.connection import Base
+
 # Import all model modules to register with Base
 try:
     from src.models import (
-        image, annotation, model, dataset, 
-        training_job, inference_job, performance_metric, deployment
+        image,
+        annotation,
+        model,
+        dataset,
+        training_job,
+        inference_job,
+        performance_metric,
+        deployment,
     )
 except ImportError:
     # Models might not be converted to SQLAlchemy yet
@@ -61,29 +69,29 @@ target_metadata = Base.metadata
 def get_database_url() -> str:
     """
     Get database URL from environment variables.
-    
+
     Returns:
         Database URL with async driver
     """
     # Try to get from environment first
     database_url = os.getenv("DATABASE_URL")
-    
+
     if not database_url:
         # Fallback to config file
         database_url = config.get_main_option("sqlalchemy.url")
-    
+
     if not database_url:
         raise ValueError(
             "Database URL not found. Set DATABASE_URL environment variable "
             "or configure sqlalchemy.url in alembic.ini"
         )
-    
+
     # Convert to async driver for migrations
     if database_url.startswith("postgresql://"):
         database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     elif database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
-    
+
     return database_url
 
 
@@ -100,11 +108,11 @@ def run_migrations_offline() -> None:
     script output.
     """
     url = get_database_url()
-    
+
     # Remove async driver for offline mode
     if url.startswith("postgresql+asyncpg://"):
         url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
-    
+
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -115,7 +123,10 @@ def run_migrations_offline() -> None:
         render_as_batch=False,  # Set to True for SQLite compatibility
     )
 
-    logger.info("Running migrations in offline mode", database_url=url.split("@")[1] if "@" in url else "***")
+    logger.info(
+        "Running migrations in offline mode",
+        database_url=url.split("@")[1] if "@" in url else "***",
+    )
 
     with context.begin_transaction():
         context.run_migrations()
@@ -129,10 +140,8 @@ def do_run_migrations(connection: Connection) -> None:
         compare_type=True,  # Detect column type changes
         compare_server_default=True,  # Detect server default changes
         render_as_batch=False,  # Set to True for SQLite compatibility
-        
         # Custom migration options
         transaction_per_migration=True,  # Use separate transaction per migration
-        
         # Include object filters for better control
         include_object=include_object,
         include_name=include_name,
@@ -142,10 +151,12 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
-def include_object(object, name: str, type_: str, reflected: bool, compare_to: Optional[object]) -> bool:
+def include_object(
+    object, name: str, type_: str, reflected: bool, compare_to: Optional[object]
+) -> bool:
     """
     Filter objects to include in migrations.
-    
+
     This function allows filtering of database objects during autogenerate.
     Return True to include the object, False to exclude it.
     """
@@ -155,37 +166,40 @@ def include_object(object, name: str, type_: str, reflected: bool, compare_to: O
         if name.startswith("_") or name.startswith("temp_"):
             logger.debug("Excluding table from migrations", table_name=name)
             return False
-    
+
     return True
 
 
 def include_name(name: Optional[str], type_: str, parent_names: dict) -> bool:
     """
     Filter names to include in migrations.
-    
+
     This function allows filtering of database object names during autogenerate.
     Return True to include the name, False to exclude it.
     """
     if name is None:
         return True
-        
+
     # Exclude system schemas and objects
     if type_ == "schema" and name in ("information_schema", "pg_catalog", "pg_toast"):
         return False
-    
+
     # Exclude system tables and views
     if type_ in ("table", "view") and name.startswith(("pg_", "information_schema")):
         return False
-    
+
     return True
 
 
 async def run_async_migrations() -> None:
     """Run migrations in async mode using asyncpg."""
     database_url = get_database_url()
-    
-    logger.info("Starting async migrations", database_url=database_url.split("@")[1] if "@" in database_url else "***")
-    
+
+    logger.info(
+        "Starting async migrations",
+        database_url=database_url.split("@")[1] if "@" in database_url else "***",
+    )
+
     # Create async engine for migrations
     connectable = create_async_engine(
         database_url,
@@ -195,7 +209,7 @@ async def run_async_migrations() -> None:
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
-        
+
     await connectable.dispose()
     logger.info("Async migrations completed successfully")
 

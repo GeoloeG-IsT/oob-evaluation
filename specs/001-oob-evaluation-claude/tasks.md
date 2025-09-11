@@ -4,9 +4,10 @@
 **Prerequisites**: plan.md, research.md, data-model.md, contracts/, quickstart.md
 
 ## Execution Flow (main)
+
 ```
 1. Load plan.md from feature directory
-   → Tech stack: Next.js/React/TypeScript (frontend), FastAPI/Python (backend), Supabase/PostgreSQL, Celery
+   → Tech stack: Next.js/React/TypeScript (frontend), FastAPI/Python (backend), PostgreSQL, Celery
    → Structure: Web application with frontend/ and backend/ directories
 2. Load design documents:
    → data-model.md: 8 entities (Image, Annotation, Model, Dataset, TrainingJob, InferenceJob, PerformanceMetric, Deployment)
@@ -26,10 +27,12 @@
 ```
 
 ## Format: `[ID] [P?] Description`
+
 - **[P]**: Can run in parallel (different files, no dependencies)
 - All paths relative to repository root
 
 ## Path Conventions
+
 - **Backend**: `backend/src/`, `backend/tests/`
 - **Frontend**: `frontend/src/`, `frontend/tests/`
 - **Celery**: `celery/src/`, `celery/tests/`
@@ -47,9 +50,11 @@
 - [ ] T008 [P] Create docker-compose.yml and docker-compose.dev.yml in repository root
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
+
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
 
 ### Contract Tests (API Endpoints)
+
 - [ ] T009 [P] Contract test POST /api/v1/images (uploadImages) in backend/tests/contract/test_images_upload.py
 - [ ] T010 [P] Contract test GET /api/v1/images (listImages) in backend/tests/contract/test_images_list.py
 - [ ] T011 [P] Contract test GET /api/v1/images/{id} (getImage) in backend/tests/contract/test_images_get.py
@@ -72,6 +77,7 @@
 - [ ] T028 [P] Contract test POST /api/v1/export/annotations (exportAnnotations) in backend/tests/contract/test_export_annotations.py
 
 ### Integration Tests (User Workflows)
+
 - [ ] T029 [P] Integration test image upload workflow in backend/tests/integration/test_image_upload_workflow.py
 - [ ] T030 [P] Integration test manual annotation workflow in backend/tests/integration/test_manual_annotation_workflow.py
 - [ ] T031 [P] Integration test assisted annotation workflow in backend/tests/integration/test_assisted_annotation_workflow.py
@@ -84,6 +90,7 @@
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
 
 ### Database Models and Migrations
+
 - [ ] T037 [P] Image model and migration in backend/src/models/image.py and backend/migrations/001_create_images_table.sql
 - [ ] T038 [P] Annotation model and migration in backend/src/models/annotation.py and backend/migrations/002_create_annotations_table.sql
 - [ ] T039 [P] Model model and migration in backend/src/models/model.py and backend/migrations/003_create_models_table.sql
@@ -94,18 +101,21 @@
 - [ ] T044 [P] Deployment model and migration in backend/src/models/deployment.py and backend/migrations/008_create_deployments_table.sql
 
 ### ML Framework Libraries
+
 - [ ] T045 [P] ML models library with YOLO11/12 integration in backend/src/lib/ml_models/
 - [ ] T046 [P] Inference engine library for real-time and batch processing in backend/src/lib/inference_engine/
 - [ ] T047 [P] Training pipeline library for model fine-tuning in backend/src/lib/training_pipeline/
 - [ ] T048 [P] Annotation tools library for assisted annotation in backend/src/lib/annotation_tools/
 
 ### CLI Commands
+
 - [ ] T049 [P] ML models CLI commands in backend/src/cli/ml_models_cli.py
 - [ ] T050 [P] Inference CLI commands in backend/src/cli/inference_cli.py
 - [ ] T051 [P] Training CLI commands in backend/src/cli/training_cli.py
 - [ ] T052 [P] Annotation CLI commands in backend/src/cli/annotation_cli.py
 
 ### Service Layer
+
 - [ ] T053 [P] Image service for upload and organization in backend/src/services/image_service.py
 - [ ] T054 [P] Annotation service for manual and assisted annotation in backend/src/services/annotation_service.py
 - [ ] T055 [P] Model service for management and selection in backend/src/services/model_service.py
@@ -116,6 +126,7 @@
 - [ ] T060 [P] Export service for annotation data in backend/src/services/export_service.py
 
 ### API Endpoints Implementation
+
 - [ ] T061 Image management endpoints in backend/src/api/v1/images.py
 - [ ] T062 Annotation CRUD endpoints in backend/src/api/v1/annotations.py
 - [ ] T063 Model listing and details endpoints in backend/src/api/v1/models.py
@@ -128,17 +139,20 @@
 ## Phase 3.4: Async Processing and Integration
 
 ### Celery Workers
+
 - [ ] T069 [P] Training worker for model fine-tuning in celery/src/workers/training_worker.py
 - [ ] T070 [P] Inference worker for batch processing in celery/src/workers/inference_worker.py
 - [ ] T071 [P] Evaluation worker for metrics calculation in celery/src/workers/evaluation_worker.py
 - [ ] T072 [P] Deployment worker for model endpoints in celery/src/workers/deployment_worker.py
 
 ### Database Integration
-- [ ] T073 Configure Supabase connection and connection pooling in backend/src/database/connection.py
+
+- [ ] T073 Configure PostgreSQL connection and connection pooling in backend/src/database/connection.py
 - [ ] T074 Setup Alembic for database migrations in backend/alembic.ini and backend/alembic/
 - [ ] T075 Configure structured logging with correlation IDs in backend/src/utils/logging.py
 
 ### Frontend Components
+
 - [ ] T076 [P] Image upload and gallery components in frontend/src/components/ImageUpload/
 - [ ] T077 [P] Annotation tools with Canvas API in frontend/src/components/AnnotationTools/
 - [ ] T078 [P] Model selection and configuration interface in frontend/src/components/ModelSelection/
@@ -158,6 +172,7 @@
 ## Dependencies
 
 ### Critical Path
+
 - Setup (T001-T008) before everything
 - Contract tests (T009-T028) before implementation (T037+)
 - Integration tests (T029-T036) before implementation (T037+)
@@ -168,6 +183,7 @@
 - Backend services before frontend components (T076-T080)
 
 ### Blocking Dependencies
+
 - T037-T044 (models) block T053-T060 (services)
 - T045-T048 (ML libraries) block T053-T060 (services)
 - T053-T060 (services) block T061-T068 (endpoints)
@@ -177,6 +193,7 @@
 ## Parallel Execution Examples
 
 ### Phase 1: Setup (All Parallel)
+
 ```bash
 # Launch T001-T008 together after T001 creates structure:
 Task: "Initialize Next.js 14 project with TypeScript in frontend/"
@@ -189,6 +206,7 @@ Task: "Create docker-compose.yml and docker-compose.dev.yml in repository root"
 ```
 
 ### Phase 2: Contract Tests (All Parallel)
+
 ```bash
 # Launch T009-T028 together:
 Task: "Contract test POST /api/v1/images (uploadImages) in backend/tests/contract/test_images_upload.py"
@@ -198,6 +216,7 @@ Task: "Contract test GET /api/v1/images/{id} (getImage) in backend/tests/contrac
 ```
 
 ### Phase 3: Integration Tests (All Parallel)
+
 ```bash
 # Launch T029-T036 together:
 Task: "Integration test image upload workflow in backend/tests/integration/test_image_upload_workflow.py"
@@ -206,6 +225,7 @@ Task: "Integration test manual annotation workflow in backend/tests/integration/
 ```
 
 ### Phase 4: Models and Libraries (All Parallel)
+
 ```bash
 # Launch T037-T052 together:
 Task: "Image model and migration in backend/src/models/image.py and backend/migrations/001_create_images_table.sql"
@@ -215,6 +235,7 @@ Task: "ML models CLI commands in backend/src/cli/ml_models_cli.py"
 ```
 
 ## Notes
+
 - [P] tasks = different files, no dependencies
 - Verify all tests fail before implementing
 - Commit after each task completion

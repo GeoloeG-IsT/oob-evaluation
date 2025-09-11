@@ -53,7 +53,7 @@ This document provides the missing implementation details and task mappings need
 - **Deployment endpoints**: `/api/v1/deployments` (POST, GET, PATCH)
 - **Export endpoints**: `/api/v1/export/annotations` (POST)
 
-### Database Setup (Supabase/PostgreSQL)
+### Database Setup (PostgreSQL)
 **Base Path**: `backend/migrations/`
 
 **Migration Tasks** (mapped to data-model.md entities):

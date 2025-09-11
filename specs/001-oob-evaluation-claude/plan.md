@@ -4,6 +4,7 @@
 **Input**: Feature specification from `/home/pascal/wks/oob-evaluation-claude/specs/001-oob-evaluation-claude/spec.md`
 
 ## Execution Flow (/plan command scope)
+
 ```
 1. Load feature spec from Input path
    → If not found: ERROR "No feature spec at {path}"
@@ -25,16 +26,19 @@
 ```
 
 **IMPORTANT**: The /plan command STOPS at step 7. Phases 2-4 are executed by other commands:
+
 - Phase 2: /tasks command creates tasks.md
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-A web application for evaluating different Object Detection and Segmentation models (YOLO11/12, RT-DETR, SAM2) with capabilities for image upload, annotation, model inference, training/fine-tuning, performance evaluation, and model deployment via REST APIs. Uses Next.js/React/TypeScript frontend, FastAPI/Python backend, Supabase/PostgreSQL database, Celery task queue, Docker containerization, and GCP Cloud Run deployment.
+
+A web application for evaluating different Object Detection and Segmentation models (YOLO11/12, RT-DETR, SAM2) with capabilities for image upload, annotation, model inference, training/fine-tuning, performance evaluation, and model deployment via REST APIs. Uses Next.js/React/TypeScript frontend, FastAPI/Python backend, PostgreSQL database, Celery task queue, Docker containerization, and GCP Cloud Run deployment.
 
 ## Technical Context
+
 **Language/Version**: Python 3.11+ (backend), TypeScript/Node.js 18+ (frontend)  
-**Primary Dependencies**: FastAPI, Next.js, React, Supabase, Celery, Docker  
-**Storage**: Supabase/PostgreSQL (structured data), file system/cloud storage (images/models)  
+**Primary Dependencies**: FastAPI, Next.js, React, PostgreSQL, Celery, Docker  
+**Storage**: PostgreSQL (structured data), file system/cloud storage (images/models)  
 **Testing**: pytest (backend), Jest/React Testing Library (frontend)  
 **Target Platform**: Linux containers on GCP Cloud Run  
 **Project Type**: web - frontend + backend structure  
@@ -43,21 +47,25 @@ A web application for evaluating different Object Detection and Segmentation mod
 **Scale/Scope**: ML evaluation platform with 40 functional requirements, 7 key entities, model deployment capabilities
 
 ## Constitution Check
+
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 **Simplicity**:
+
 - Projects: 3 (frontend, backend, celery - at max limit)
 - Using framework directly? Yes (FastAPI, Next.js directly)
 - Single data model? Yes (shared models between API and DB)
 - Avoiding patterns? Yes (direct ORM usage, no unnecessary abstractions)
 
 **Architecture**:
+
 - EVERY feature as library? Yes (models, inference, training as libraries)
 - Libraries listed: ml-models (model management), inference-engine (prediction), training-pipeline (fine-tuning), annotation-tools (labeling)
 - CLI per library: Yes (model-cli, inference-cli, training-cli, annotation-cli with standard flags)
 - Library docs: llms.txt format planned? Yes
 
 **Testing (NON-NEGOTIABLE)**:
+
 - RED-GREEN-Refactor cycle enforced? Yes (contract tests written first)
 - Git commits show tests before implementation? Yes (planned commit structure)
 - Order: Contract→Integration→E2E→Unit strictly followed? Yes
@@ -66,11 +74,13 @@ A web application for evaluating different Object Detection and Segmentation mod
 - FORBIDDEN: Implementation before test, skipping RED phase? Acknowledged
 
 **Observability**:
+
 - Structured logging included? Yes (FastAPI logging, React error boundaries)
 - Frontend logs → backend? Yes (unified logging stream)
 - Error context sufficient? Yes (detailed error tracking for ML pipelines)
 
 **Versioning**:
+
 - Version number assigned? 1.0.0 (MAJOR.MINOR.BUILD)
 - BUILD increments on every change? Yes
 - Breaking changes handled? Yes (DB migrations, API versioning)
@@ -78,6 +88,7 @@ A web application for evaluating different Object Detection and Segmentation mod
 ## Project Structure
 
 ### Documentation (this feature)
+
 ```
 specs/[###-feature]/
 ├── plan.md              # This file (/plan command output)
@@ -89,6 +100,7 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
+
 ```
 # Option 1: Single project (DEFAULT)
 src/
@@ -128,12 +140,14 @@ ios/ or android/
 **Structure Decision**: Option 2 (Web application) - frontend/ and backend/ structure based on Next.js/FastAPI stack
 
 ## Phase 0: Outline & Research
+
 1. **Extract unknowns from Technical Context** above:
    - For each NEEDS CLARIFICATION → research task
    - For each dependency → best practices task
    - For each integration → patterns task
 
 2. **Generate and dispatch research agents**:
+
    ```
    For each unknown in Technical Context:
      Task: "Research {unknown} for {feature context}"
@@ -149,6 +163,7 @@ ios/ or android/
 **Output**: research.md with all NEEDS CLARIFICATION resolved
 
 ## Phase 1: Design & Contracts
+
 *Prerequisites: research.md complete*
 
 1. **Extract entities from feature spec** → `data-model.md`:
@@ -181,27 +196,31 @@ ios/ or android/
 **Output**: data-model.md, /contracts/*, failing tests, quickstart.md, agent-specific file
 
 ## Phase 2: Task Planning Approach
+
 *This section describes what the /tasks command will do - DO NOT execute during /plan*
 
 **Task Generation Strategy**:
+
 - Load `/templates/tasks-template.md` as base
 - **Reference**: `task-mapping.md` provides detailed cross-references between design docs and implementation tasks
 - Generate tasks from Phase 1 design docs with explicit file path mappings:
   - Each contract endpoint → contract test task [P] (15 endpoints mapped in task-mapping.md)
   - Each entity → model creation task [P] (8 entities with specific file paths)
   - Each user story → integration test task (8 quickstart workflows)
-  - Technology setup tasks for Next.js/FastAPI/Supabase/Celery stack
+  - Technology setup tasks for Next.js/FastAPI/PostgreSQL/Celery stack
   - ML integration tasks for YOLO11/12, RT-DETR, SAM2 frameworks
   - Library creation tasks (ml-models, inference-engine, training-pipeline, annotation-tools)
   - CLI implementation tasks for each library with constitutional compliance
 
 **Ordering Strategy**:
+
 - TDD order: Contract tests → Integration tests → Implementation
 - Dependency order: Database/Models → API Services → Libraries → UI Components
 - Mark [P] for parallel execution (independent files)
 - Group related tasks for efficient development
 
 **Estimated Output**: 50-60 numbered, ordered tasks in tasks.md covering:
+
 - **Setup Phase**: 8 technology-specific initialization tasks
 - **Contract Tests**: 15 endpoint test tasks [P] (mapped to api-spec.yaml)
 - **Data Models**: 8 entity creation tasks [P] (mapped to data-model.md)
@@ -215,6 +234,7 @@ ios/ or android/
 - **Docker/Deployment**: 5 containerization and deployment tasks
 
 **Reference Documentation**:
+
 - `task-mapping.md`: Complete cross-reference between tasks and design documents
 - `contracts/api-spec.yaml`: API endpoint specifications with operation IDs
 - `data-model.md`: Entity definitions with field specifications
@@ -223,6 +243,7 @@ ios/ or android/
 **IMPORTANT**: This phase is executed by the /tasks command, NOT by /plan
 
 ## Phase 3+: Future Implementation
+
 *These phases are beyond the scope of the /plan command*
 
 **Phase 3**: Task execution (/tasks command creates tasks.md)  
@@ -230,6 +251,7 @@ ios/ or android/
 **Phase 5**: Validation (run tests, execute quickstart.md, performance validation)
 
 ## Complexity Tracking
+
 *Fill ONLY if Constitution Check has violations that must be justified*
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
@@ -237,11 +259,12 @@ ios/ or android/
 | [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
 | [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
 
-
 ## Progress Tracking
+
 *This checklist is updated during execution flow*
 
 **Phase Status**:
+
 - [x] Phase 0: Research complete (/plan command)
 - [x] Phase 1: Design complete (/plan command)
 - [x] Phase 2: Task planning complete (/plan command - describe approach only)
@@ -250,6 +273,7 @@ ios/ or android/
 - [ ] Phase 5: Validation passed
 
 **Gate Status**:
+
 - [x] Initial Constitution Check: PASS
 - [x] Post-Design Constitution Check: PASS
 - [x] All NEEDS CLARIFICATION resolved

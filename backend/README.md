@@ -75,7 +75,7 @@ backend/
 - **SQLAlchemy**: ORM for database operations
 - **Alembic**: Database migration management
 - **Celery**: Async task processing
-- **Supabase**: Database and authentication
+- **PostgreSQL**: Database with pgvector for vector storage
 - **Structured Logging**: JSON-formatted logs with correlation IDs
 
 ## ML Model Support

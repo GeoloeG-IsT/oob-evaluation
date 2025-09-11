@@ -21,31 +21,37 @@ alembic/
 All commands should be run from the `backend/` directory:
 
 ### Generate a new migration
+
 ```bash
 alembic revision --autogenerate -m "Description of changes"
 ```
 
 ### Apply migrations
+
 ```bash
 alembic upgrade head
 ```
 
 ### View current migration status
+
 ```bash
 alembic current
 ```
 
 ### View migration history
+
 ```bash
 alembic history --verbose
 ```
 
 ### Downgrade to previous migration
+
 ```bash
 alembic downgrade -1
 ```
 
 ### Downgrade to specific revision
+
 ```bash
 alembic downgrade <revision_id>
 ```
@@ -66,23 +72,16 @@ The migrations use the following environment variables:
 4. **Backup production data** before running migrations
 5. **Plan downgrades** for critical schema changes
 
-## Supabase Integration
-
-The migrations are configured to work with Supabase/PostgreSQL:
-
-- Uses `postgresql+asyncpg://` driver for async operations
-- Includes proper connection pooling for migration operations  
-- Supports both local PostgreSQL and Supabase cloud instances
-- Filters out system tables and schemas during autogenerate
-
 ## Troubleshooting
 
 ### Connection Issues
+
 - Verify `DATABASE_URL` is correctly set
 - Check network connectivity to database
 - Ensure database user has migration permissions
 
 ### Migration Conflicts
+
 ```bash
 # View conflicting revisions
 alembic branches
@@ -92,6 +91,7 @@ alembic merge -m "Merge conflicting migrations" <rev1> <rev2>
 ```
 
 ### Reset Migration State (Development Only)
+
 ```bash
 # WARNING: This will lose migration history
 alembic stamp head

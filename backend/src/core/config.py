@@ -16,23 +16,31 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 from functools import lru_cache
 
-from pydantic import BaseSettings, validator, Field
+from pydantic import validator, Field
 from pydantic.networks import PostgresDsn, RedisDsn, HttpUrl
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 logger = logging.getLogger(__name__)
 
 
-class DatabaseSettings(BaseSettings):
+class BaseConfig(BaseSettings):
+    """Base configuration class with common settings."""
+    
+    model_config = SettingsConfigDict(
+        case_sensitive=False,
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra='ignore'
+    )
+
+
+class DatabaseSettings(BaseConfig):
     """Database configuration settings."""
     
     # Primary database URL (PostgreSQL)
     database_url: PostgresDsn = Field(..., env="DATABASE_URL")
     
-    # Supabase configuration
-    supabase_url: Optional[HttpUrl] = Field(None, env="SUPABASE_URL")
-    supabase_anon_key: Optional[str] = Field(None, env="SUPABASE_ANON_KEY")
-    supabase_service_key: Optional[str] = Field(None, env="SUPABASE_SERVICE_KEY")
     
     # Database pool settings
     db_pool_size: int = Field(10, env="DB_POOL_SIZE")
@@ -43,13 +51,11 @@ class DatabaseSettings(BaseSettings):
     # Database connection retries
     db_retry_attempts: int = Field(3, env="DB_RETRY_ATTEMPTS")
     db_retry_delay: int = Field(1, env="DB_RETRY_DELAY")
-
-    class Config:
-        env_prefix = "DB_"
-        case_sensitive = False
+    
 
 
-class RedisSettings(BaseSettings):
+
+class RedisSettings(BaseConfig):
     """Redis configuration settings."""
     
     redis_url: RedisDsn = Field(..., env="REDIS_URL")
@@ -58,12 +64,9 @@ class RedisSettings(BaseSettings):
     redis_timeout: int = Field(30, env="REDIS_TIMEOUT")
     redis_max_connections: int = Field(50, env="REDIS_MAX_CONNECTIONS")
 
-    class Config:
-        env_prefix = "REDIS_"
-        case_sensitive = False
 
 
-class SecuritySettings(BaseSettings):
+class SecuritySettings(BaseConfig):
     """Security and authentication settings."""
     
     # Main application secret key
@@ -76,12 +79,12 @@ class SecuritySettings(BaseSettings):
     
     # API keys and tokens
     api_key_header: str = Field("X-API-Key", env="API_KEY_HEADER")
-    admin_api_keys: List[str] = Field([], env="ADMIN_API_KEYS")
+    # admin_api_keys: List[str] = Field([], env="ADMIN_API_KEYS")
     
     # CORS settings
-    cors_origins: List[str] = Field(["*"], env="CORS_ORIGINS")
-    cors_methods: List[str] = Field(["*"], env="CORS_METHODS")
-    cors_headers: List[str] = Field(["*"], env="CORS_HEADERS")
+    cors_origins: str = Field("*", env="CORS_ORIGINS")
+    cors_methods: str = Field("*", env="CORS_METHODS")
+    cors_headers: str = Field("*", env="CORS_HEADERS")
     
     # Rate limiting
     rate_limit_enabled: bool = Field(True, env="RATE_LIMIT_ENABLED")
@@ -97,24 +100,25 @@ class SecuritySettings(BaseSettings):
             raise ValueError("SECRET_KEY must be at least 32 characters long")
         return v
     
-    @validator("cors_origins", pre=True)
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    # @validator("cors_origins", pre=True)
+    # def parse_cors_origins(cls, v):
+    #     if isinstance(v, str):
+    #         if v.strip() == '':
+    #             return ["*"]  # Default to allow all if empty
+    #         return [origin.strip() for origin in v.split(",")]
+    #     return v
     
-    @validator("admin_api_keys", pre=True)
-    def parse_admin_api_keys(cls, v):
-        if isinstance(v, str):
-            return [key.strip() for key in v.split(",") if key.strip()]
-        return v
-
-    class Config:
-        env_prefix = "SECURITY_"
-        case_sensitive = False
+    # @validator("admin_api_keys", pre=True)
+    # def parse_admin_api_keys(cls, v):
+    #     if isinstance(v, str):
+    #         if v.strip() == '':
+    #             return []
+    #         return [key.strip() for key in v.split(",") if key.strip()]
+    #     return v
 
 
-class StorageSettings(BaseSettings):
+
+class StorageSettings(BaseConfig):
     """Storage configuration settings."""
     
     # Local storage paths
@@ -125,8 +129,8 @@ class StorageSettings(BaseSettings):
     
     # Upload settings
     upload_max_size: int = Field(1073741824, env="UPLOAD_MAX_SIZE")  # 1GB default
-    upload_allowed_extensions: List[str] = Field(
-        [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"],
+    upload_allowed_extensions: str = Field(
+        ".jpg,.jpeg,.png,.bmp,.tiff,.tif,.webp",
         env="UPLOAD_ALLOWED_EXTENSIONS"
     )
     
@@ -146,18 +150,17 @@ class StorageSettings(BaseSettings):
             v = Path(v)
         return v
     
-    @validator("upload_allowed_extensions", pre=True)
-    def parse_extensions(cls, v):
-        if isinstance(v, str):
-            return [ext.strip() for ext in v.split(",")]
-        return v
-
-    class Config:
-        env_prefix = "STORAGE_"
-        case_sensitive = False
+    # @validator("upload_allowed_extensions", pre=True)
+    # def parse_extensions(cls, v):
+    #     if isinstance(v, str):
+    #         if v.strip() == '':
+    #             return [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"]  # Default extensions
+    #         return [ext.strip() for ext in v.split(",")]
+    #     return v
 
 
-class MLSettings(BaseSettings):
+
+class MLSettings(BaseConfig):
     """Machine Learning and model configuration settings."""
     
     # CUDA and GPU settings
@@ -183,25 +186,24 @@ class MLSettings(BaseSettings):
     inference_timeout: int = Field(600, env="INFERENCE_TIMEOUT_SECONDS")
     
     # Evaluation settings
-    evaluation_metrics: List[str] = Field(
-        ["mAP", "mAP50", "precision", "recall", "f1"],
+    evaluation_metrics: str = Field(
+        "mAP,mAP50,precision,recall,f1",
         env="EVALUATION_METRICS"
     )
     confidence_threshold: float = Field(0.25, env="CONFIDENCE_THRESHOLD")
     iou_threshold: float = Field(0.5, env="IOU_THRESHOLD")
     
-    @validator("evaluation_metrics", pre=True)
-    def parse_metrics(cls, v):
-        if isinstance(v, str):
-            return [metric.strip() for metric in v.split(",")]
-        return v
-
-    class Config:
-        env_prefix = "ML_"
-        case_sensitive = False
+    # @validator("evaluation_metrics", pre=True)
+    # def parse_metrics(cls, v):
+    #     if isinstance(v, str):
+    #         if v.strip() == '':
+    #             return ["mAP", "IoU", "precision", "recall", "F1"]  # Default metrics
+    #         return [metric.strip() for metric in v.split(",")]
+    #     return v
 
 
-class CelerySettings(BaseSettings):
+
+class CelerySettings(BaseConfig):
     """Celery task queue configuration settings."""
     
     # Broker settings
@@ -234,12 +236,9 @@ class CelerySettings(BaseSettings):
     flower_port: int = Field(5555, env="FLOWER_PORT")
     flower_auth: Optional[str] = Field(None, env="FLOWER_AUTH")
 
-    class Config:
-        env_prefix = "CELERY_"
-        case_sensitive = False
 
 
-class LoggingSettings(BaseSettings):
+class LoggingSettings(BaseConfig):
     """Logging configuration settings."""
     
     log_level: str = Field("INFO", env="LOG_LEVEL")
@@ -263,12 +262,9 @@ class LoggingSettings(BaseSettings):
             raise ValueError(f"LOG_LEVEL must be one of: {valid_levels}")
         return v.upper()
 
-    class Config:
-        env_prefix = "LOG_"
-        case_sensitive = False
 
 
-class GCPSettings(BaseSettings):
+class GCPSettings(BaseConfig):
     """Google Cloud Platform configuration settings."""
     
     # Project settings
@@ -297,12 +293,9 @@ class GCPSettings(BaseSettings):
     # AI Platform
     ai_platform_region: str = Field("us-central1", env="AI_PLATFORM_REGION")
 
-    class Config:
-        env_prefix = "GCP_"
-        case_sensitive = False
 
 
-class ApplicationSettings(BaseSettings):
+class ApplicationSettings(BaseConfig):
     """Main application configuration settings."""
     
     # Application info
@@ -346,24 +339,20 @@ class ApplicationSettings(BaseSettings):
             raise ValueError(f"ENVIRONMENT must be one of: {valid_envs}")
         return v
 
-    class Config:
-        env_prefix = ""
-        case_sensitive = False
 
-
-class Settings(BaseSettings):
+class Settings(BaseConfig):
     """Master settings class that combines all configuration sections."""
     
     # Configuration sections
-    app: ApplicationSettings = ApplicationSettings()
-    database: DatabaseSettings = DatabaseSettings()
-    redis: RedisSettings = RedisSettings()
-    security: SecuritySettings = SecuritySettings()
-    storage: StorageSettings = StorageSettings()
-    ml: MLSettings = MLSettings()
-    celery: CelerySettings = CelerySettings()
-    logging: LoggingSettings = LoggingSettings()
-    gcp: GCPSettings = GCPSettings()
+    app: ApplicationSettings = Field(default_factory=ApplicationSettings)
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    redis: RedisSettings = Field(default_factory=RedisSettings)
+    security: SecuritySettings = Field(default_factory=SecuritySettings)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
+    ml: MLSettings = Field(default_factory=MLSettings)
+    # celery: CelerySettings = Field(default_factory=CelerySettings)
+    logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    gcp: GCPSettings = Field(default_factory=GCPSettings)
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -373,9 +362,9 @@ class Settings(BaseSettings):
     def _validate_configuration(self):
         """Perform cross-section validation."""
         # Ensure Celery broker matches Redis URL
-        if hasattr(self.celery, 'broker_url') and hasattr(self.redis, 'redis_url'):
-            if str(self.celery.broker_url) != str(self.redis.redis_url):
-                logger.warning("Celery broker URL differs from Redis URL")
+        # if hasattr(self.celery, 'broker_url') and hasattr(self.redis, 'redis_url'):
+        #     if str(self.celery.broker_url) != str(self.redis.redis_url):
+        #         logger.warning("Celery broker URL differs from Redis URL")
         
         # Validate GCP settings
         if self.gcp.use_secret_manager and not self.gcp.project_id:
@@ -454,16 +443,10 @@ class Settings(BaseSettings):
             "security": self.security.dict(),
             "storage": self.storage.dict(),
             "ml": self.ml.dict(),
-            "celery": self.celery.dict(),
+            # "celery": self.celery.dict(),
             "logging": self.logging.dict(),
             "gcp": self.gcp.dict(),
         }
-
-    class Config:
-        case_sensitive = False
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        validate_assignment = True
 
 
 @lru_cache()
