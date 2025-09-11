@@ -79,7 +79,7 @@ class SecuritySettings(BaseConfig):
     
     # API keys and tokens
     api_key_header: str = Field("X-API-Key", env="API_KEY_HEADER")
-    # admin_api_keys: List[str] = Field([], env="ADMIN_API_KEYS")
+    admin_api_keys: str = Field("", env="ADMIN_API_KEYS")
     
     # CORS settings
     cors_origins: str = Field("*", env="CORS_ORIGINS")
@@ -108,13 +108,12 @@ class SecuritySettings(BaseConfig):
     #         return [origin.strip() for origin in v.split(",")]
     #     return v
     
-    # @validator("admin_api_keys", pre=True)
-    # def parse_admin_api_keys(cls, v):
-    #     if isinstance(v, str):
-    #         if v.strip() == '':
-    #             return []
-    #         return [key.strip() for key in v.split(",") if key.strip()]
-    #     return v
+    @property
+    def admin_api_keys_list(self) -> List[str]:
+        """Convert admin_api_keys string to list for compatibility."""
+        if not self.admin_api_keys or self.admin_api_keys.strip() == '':
+            return []
+        return [key.strip() for key in self.admin_api_keys.split(",") if key.strip()]
 
 
 

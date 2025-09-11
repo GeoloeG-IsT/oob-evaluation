@@ -171,7 +171,7 @@ class SecurityManager:
         Returns:
             True if it's an admin key
         """
-        return api_key in self.settings.security.admin_api_keys
+        return api_key in self.settings.security.admin_api_keys_list
     
     def sanitize_filename(self, filename: str) -> str:
         """Sanitize a filename for safe storage.
@@ -298,7 +298,7 @@ class SecurityValidator:
             warnings.append("Rate limiting is disabled")
         
         # Validate API keys
-        for api_key in self.settings.security.admin_api_keys:
+        for api_key in self.settings.security.admin_api_keys_list:
             if not self.security_manager.validate_api_key(api_key):
                 errors.append(f"Invalid admin API key format: {api_key[:8]}...")
         

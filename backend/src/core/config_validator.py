@@ -6,16 +6,11 @@ environment checks, and security validations to ensure the application
 runs safely across different environments.
 """
 
-import os
-import re
 import logging
 import socket
 import secrets
-from typing import Dict, List, Optional, Tuple, Any
-from pathlib import Path
+from typing import Dict, List, Any
 from urllib.parse import urlparse
-
-from pydantic import ValidationError
 
 
 logger = logging.getLogger(__name__)
@@ -497,8 +492,7 @@ def generate_secure_config() -> Dict[str, str]:
         "SECRET_KEY": secrets.token_urlsafe(32),
         "JWT_SECRET": secrets.token_urlsafe(32),
         "ENCRYPTION_KEY": secrets.token_urlsafe(32),
-        "API_KEY": secrets.token_urlsafe(16),
-        "ADMIN_API_KEY": secrets.token_urlsafe(24),
+        "ADMIN_API_KEYS": secrets.token_urlsafe(24),
     }
 
 
