@@ -1,0 +1,210 @@
+# Google Cloud Build Configuration
+# For building and deploying ML Evaluation Platform to Cloud Run
+
+steps:
+  # Build Backend Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-backend'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-backend:${BUILD_ID}'
+      - '-t'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-backend:latest'
+      - '-f'
+      - 'docker/Dockerfile.backend.prod'
+      - '.'
+    env:
+      - 'DOCKER_BUILDKIT=1'
+
+  # Build Frontend Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-frontend'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-frontend:${BUILD_ID}'
+      - '-t'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-frontend:latest'
+      - '-f'
+      - 'docker/Dockerfile.frontend.prod'
+      - '.'
+    env:
+      - 'DOCKER_BUILDKIT=1'
+
+  # Build Celery Worker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-celery'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-celery:${BUILD_ID}'
+      - '-t'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-celery:latest'
+      - '-f'
+      - 'docker/Dockerfile.celery.prod'
+      - '.'
+    env:
+      - 'DOCKER_BUILDKIT=1'
+
+  # Push Backend Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-backend'
+    args:
+      - 'push'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-backend:${BUILD_ID}'
+    waitFor: ['build-backend']
+
+  # Push Frontend Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-frontend'
+    args:
+      - 'push'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-frontend:${BUILD_ID}'
+    waitFor: ['build-frontend']
+
+  # Push Celery Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-celery'
+    args:
+      - 'push'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-celery:${BUILD_ID}'
+    waitFor: ['build-celery']
+
+  # Deploy Backend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-backend'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ml-eval-backend-${_ENVIRONMENT}'
+      - '--image'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-backend:${BUILD_ID}'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '8Gi'
+      - '--cpu'
+      - '4'
+      - '--max-instances'
+      - '50'
+      - '--min-instances'
+      - '1'
+      - '--concurrency'
+      - '80'
+      - '--timeout'
+      - '900'
+      - '--set-env-vars'
+      - 'ENVIRONMENT=${_ENVIRONMENT},USE_SECRET_MANAGER=true,GCP_PROJECT_ID=${PROJECT_ID}'
+      - '--allow-unauthenticated'
+      - '--service-account'
+      - 'ml-eval-service@${PROJECT_ID}.iam.gserviceaccount.com'
+    waitFor: ['push-backend']
+
+  # Deploy Frontend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-frontend'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ml-eval-frontend-${_ENVIRONMENT}'
+      - '--image'
+      - 'gcr.io/${PROJECT_ID}/ml-eval-frontend:${BUILD_ID}'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '3000'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '0'
+      - '--concurrency'
+      - '1000'
+      - '--timeout'
+      - '300'
+      - '--set-env-vars'
+      - 'NODE_ENV=production,NEXT_PUBLIC_API_URL=https://ml-eval-backend-${_ENVIRONMENT}-${_CLOUD_RUN_SUFFIX}'
+      - '--allow-unauthenticated'
+    waitFor: ['push-frontend']
+
+  # Deploy Celery Training Workers (Cloud Run Jobs)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-celery-training'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'jobs'
+      - 'replace'
+      - 'gcp/cloudrun/celery-training-job.yml'
+      - '--region'
+      - '${_REGION}'
+    env:
+      - 'PROJECT_ID=${PROJECT_ID}'
+      - 'BUILD_ID=${BUILD_ID}'
+      - 'ENVIRONMENT=${_ENVIRONMENT}'
+    waitFor: ['push-celery']
+
+  # Deploy Celery Inference Workers (Cloud Run Jobs)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-celery-inference'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'jobs'
+      - 'replace'
+      - 'gcp/cloudrun/celery-inference-job.yml'
+      - '--region'
+      - '${_REGION}'
+    env:
+      - 'PROJECT_ID=${PROJECT_ID}'
+      - 'BUILD_ID=${BUILD_ID}'
+      - 'ENVIRONMENT=${_ENVIRONMENT}'
+    waitFor: ['push-celery']
+
+  # Run Database Migrations
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'run-migrations'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'jobs'
+      - 'execute'
+      - 'ml-eval-migrate-${_ENVIRONMENT}'
+      - '--region'
+      - '${_REGION}'
+      - '--wait'
+    waitFor: ['deploy-backend']
+
+substitutions:
+  _ENVIRONMENT: 'production'
+  _REGION: 'us-central1'
+  _CLOUD_RUN_SUFFIX: '123456789-uc.a.run.app'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: '100'
+  env:
+    - 'DOCKER_BUILDKIT=1'
+
+timeout: '3600s'
+
+images:
+  - 'gcr.io/${PROJECT_ID}/ml-eval-backend:${BUILD_ID}'
+  - 'gcr.io/${PROJECT_ID}/ml-eval-backend:latest'
+  - 'gcr.io/${PROJECT_ID}/ml-eval-frontend:${BUILD_ID}'
+  - 'gcr.io/${PROJECT_ID}/ml-eval-frontend:latest'
+  - 'gcr.io/${PROJECT_ID}/ml-eval-celery:${BUILD_ID}'
+  - 'gcr.io/${PROJECT_ID}/ml-eval-celery:latest'

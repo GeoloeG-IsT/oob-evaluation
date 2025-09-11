@@ -1,0 +1,155 @@
+# Cloud Build configuration for Backend service
+steps:
+  # Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-backend-image'
+    args: [
+      'build',
+      '-f', 'docker/Dockerfile.backend.prod',
+      '-t', 'gcr.io/$PROJECT_ID/ml-eval-backend:$SHORT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/ml-eval-backend:latest',
+      '--build-arg', 'BUILD_ENV=production',
+      '.'
+    ]
+    timeout: '1200s'
+
+  # Security scan with Container Analysis
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'vulnerability-scan'
+    args: [
+      'container', 'images', 'scan',
+      'gcr.io/$PROJECT_ID/ml-eval-backend:$SHORT_SHA',
+      '--format=json'
+    ]
+    waitFor: ['build-backend-image']
+
+  # Push image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-backend-image'
+    args: [
+      'push', 'gcr.io/$PROJECT_ID/ml-eval-backend:$SHORT_SHA'
+    ]
+    waitFor: ['vulnerability-scan']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-backend-latest'
+    args: [
+      'push', 'gcr.io/$PROJECT_ID/ml-eval-backend:latest'
+    ]
+    waitFor: ['vulnerability-scan']
+
+  # Update Cloud Run service configuration
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'prepare-service-config'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Replace placeholders in service configuration
+        sed -i "s/PROJECT_ID/$PROJECT_ID/g" deployment/cloud-run/backend-service.yaml
+        sed -i "s/REGION/$_REGION/g" deployment/cloud-run/backend-service.yaml
+        sed -i "s/TAG/$SHORT_SHA/g" deployment/cloud-run/backend-service.yaml
+        
+        # Verify configuration
+        cat deployment/cloud-run/backend-service.yaml
+    waitFor: ['push-backend-image']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'deploy-backend'
+    args: [
+      'run', 'services', 'replace',
+      'deployment/cloud-run/backend-service.yaml',
+      '--region=$_REGION'
+    ]
+    waitFor: ['prepare-service-config']
+
+  # Health check
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'health-check'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Wait for service to be ready
+        sleep 30
+        
+        # Get service URL
+        SERVICE_URL=$(gcloud run services describe ml-eval-backend --region=$_REGION --format='value(status.url)')
+        echo "Service URL: $SERVICE_URL"
+        
+        # Health check with retry
+        for i in {1..5}; do
+          echo "Health check attempt $i..."
+          if curl -f "$SERVICE_URL/health" --connect-timeout 10 --max-time 30; then
+            echo "✅ Health check passed"
+            exit 0
+          else
+            echo "❌ Health check failed, retrying in 10 seconds..."
+            sleep 10
+          fi
+        done
+        
+        echo "❌ Health check failed after 5 attempts"
+        exit 1
+    waitFor: ['deploy-backend']
+
+  # Run smoke tests
+  - name: 'python:3.11-slim'
+    id: 'smoke-tests'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install requests pytest
+        
+        # Get service URL
+        SERVICE_URL=$(gcloud run services describe ml-eval-backend --region=$_REGION --format='value(status.url)')
+        
+        # Run basic smoke tests
+        python -c "
+        import requests
+        import sys
+        
+        base_url = '$SERVICE_URL'
+        
+        # Test health endpoint
+        r = requests.get(f'{base_url}/health')
+        assert r.status_code == 200, f'Health check failed: {r.status_code}'
+        
+        # Test API documentation
+        r = requests.get(f'{base_url}/docs')
+        assert r.status_code == 200, f'API docs failed: {r.status_code}'
+        
+        print('✅ Smoke tests passed')
+        "
+    waitFor: ['health-check']
+
+# Build options
+options:
+  # Use high-CPU machine for faster builds
+  machineType: 'E2_HIGHCPU_8'
+  # Use SSD for faster I/O
+  diskSizeGb: 100
+  # Enable Docker layer caching
+  env:
+    - 'DOCKER_BUILDKIT=1'
+  # Logging options
+  logging: CLOUD_LOGGING_ONLY
+  logStreamingOption: STREAM_ON
+  
+# Substitutions (can be overridden)
+substitutions:
+  _REGION: 'us-central1'
+
+# Timeout for entire build
+timeout: '1800s'  # 30 minutes
+
+# IAM
+serviceAccount: 'projects/$PROJECT_ID/serviceAccounts/ml-eval-cloudbuild@$PROJECT_ID.iam.gserviceaccount.com'
+
+# Build triggers
+tags:
+  - 'backend'
+  - 'production'
+  - 'ml-eval-platform'
