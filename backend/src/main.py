@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
 
-from .routers import images, annotations
+from .routers import images, annotations, models, inference, training, evaluation, deployments, export
 
 # Load environment variables
 load_dotenv()
@@ -64,6 +64,12 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 # Include routers
 app.include_router(images.router)
 app.include_router(annotations.router)
+app.include_router(models.router)
+app.include_router(inference.router)
+app.include_router(training.router)
+app.include_router(evaluation.router)
+app.include_router(deployments.router)
+app.include_router(export.router)
 
 
 @app.get("/")

@@ -10,7 +10,7 @@ from ..models.dataset import dataset_storage
 from ..models.model import model_storage
 from ..lib.training_pipeline import (
     TrainingPipeline, TrainingConfig, HyperParameters,
-    TrainingStatus, TrainingJob, JobScheduler, SchedulerConfig, JobPriority
+    TrainingStatus, TrainingJob, JobScheduler
 )
 
 
@@ -24,21 +24,20 @@ class TrainingService:
         
         # Initialize training pipeline and scheduler
         self.pipeline = TrainingPipeline()
-        scheduler_config = SchedulerConfig(max_concurrent_jobs=max_concurrent_jobs)
-        self.scheduler = JobScheduler(scheduler_config)
+        self.scheduler = JobScheduler({"max_concurrent_jobs": max_concurrent_jobs})
+        self.max_concurrent_jobs = max_concurrent_jobs
         
-        # Start scheduler
-        asyncio.create_task(self._start_scheduler_if_needed())
+        # Note: Scheduler will be started on first use
     
     async def _start_scheduler_if_needed(self) -> None:
         """Start the job scheduler if not already running."""
         if not self.scheduler._scheduler_running:
             await self.scheduler.start()
     
-    def create_training_job(self, base_model_id: str, dataset_id: str,
+    def start_training_job(self, base_model_id: str, dataset_id: str,
                           hyperparameters: Dict[str, Any],
-                          job_name: Optional[str] = None,
-                          priority: str = "normal") -> Dict[str, Any]:
+                          experiment_name: Optional[str] = None,
+                          metadata: Optional[Dict[str, Any]] = None) -> Optional[Any]:
         """Create a new training job."""
         # Validate required fields
         if not base_model_id:
@@ -58,11 +57,6 @@ class TrainingService:
         if not dataset:
             raise ValueError(f"Dataset {dataset_id} not found")
         
-        # Validate priority
-        valid_priorities = ["low", "normal", "high", "urgent"]
-        if priority not in valid_priorities:
-            raise ValueError(f"Priority must be one of {valid_priorities}")
-        
         # Create hyperparameters object
         try:
             hyper_params = HyperParameters.from_dict(hyperparameters)
@@ -76,11 +70,11 @@ class TrainingService:
             hyperparameters=hyperparameters,
             status="queued",
             metadata={
-                "job_name": job_name,
-                "priority": priority,
+                "experiment_name": experiment_name,
                 "base_model_name": base_model.name,
                 "base_model_type": base_model.type,
-                "dataset_name": dataset.name
+                "dataset_name": dataset.name,
+                **(metadata or {})
             }
         )
         
@@ -104,8 +98,7 @@ class TrainingService:
         )
         
         # Submit to scheduler
-        job_priority = JobPriority(priority)
-        success = self.scheduler.submit_job(training_job, job_priority)
+        success = self.scheduler.submit_job(training_job)
         
         if not success:
             # Update job status to failed if couldn't queue
@@ -116,16 +109,7 @@ class TrainingService:
         # Start monitoring
         asyncio.create_task(self._monitor_training_job(saved_job.id))
         
-        return {
-            "job_id": saved_job.id,
-            "base_model_id": base_model_id,
-            "dataset_id": dataset_id,
-            "status": "queued",
-            "priority": priority,
-            "job_name": job_name,
-            "created_at": saved_job.created_at,
-            "hyperparameters": hyperparameters
-        }
+        return saved_job
     
     async def _monitor_training_job(self, job_id: str) -> None:
         """Monitor training job progress and update storage."""
@@ -297,14 +281,34 @@ class TrainingService:
         
         return job_list, total_count
     
-    def cancel_training_job(self, job_id: str) -> bool:
+    def update_training_job(self, job_id: str, status: Optional[str] = None,
+                           progress_percentage: Optional[float] = None,
+                           execution_logs: Optional[str] = None,
+                           error_message: Optional[str] = None) -> Optional[Any]:
+        """Update training job status and progress."""
+        job = self.storage.get_by_id(job_id)
+        if not job:
+            return None
+        
+        # Update storage
+        self.storage.update_status(
+            job_id, 
+            status or job.status, 
+            progress_percentage or job.progress_percentage,
+            execution_logs or job.execution_logs
+        )
+        
+        # Return updated job
+        return self.storage.get_by_id(job_id)
+    
+    def cancel_training_job(self, job_id: str) -> Optional[Any]:
         """Cancel a training job."""
         job = self.storage.get_by_id(job_id)
         if not job:
-            return False
+            return None
         
         if job.status not in ["queued", "running"]:
-            return False
+            raise ValueError(f"Cannot cancel job in status: {job.status}")
         
         # Cancel job in scheduler
         success = self.scheduler.cancel_job(job_id)
@@ -316,8 +320,10 @@ class TrainingService:
                 "cancelled",
                 execution_logs="Job cancelled by user"
             )
+            # Return updated job
+            return self.storage.get_by_id(job_id)
         
-        return success
+        return None
     
     def pause_training_job(self, job_id: str) -> bool:
         """Pause a training job."""
