@@ -179,7 +179,7 @@ def main():
     
     print("\n🎉 Backend setup completed!")
     print("\nNext steps:")
-    print("1. Copy .env.template to .env.local and configure your settings")
+    print("1. Copy .env.template to .env.development and configure your settings")
     print("2. Start the development server: uvicorn main:app --reload")
     print("3. Check the API docs at: http://localhost:8000/docs")
     

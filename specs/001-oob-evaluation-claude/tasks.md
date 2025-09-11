@@ -47,7 +47,7 @@
 - [ ] T005 [P] Configure ESLint and Prettier for frontend in frontend/.eslintrc.js
 - [ ] T006 [P] Configure pytest and Black for backend in backend/pyproject.toml
 - [ ] T007 [P] Setup Docker configurations in docker/Dockerfile.frontend, docker/Dockerfile.backend, docker/Dockerfile.celery
-- [ ] T008 [P] Create docker-compose.yml and docker-compose.dev.yml in repository root
+- [ ] T008 [P] Create docker-compose.yml and docker-compose.development.yml in repository root
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 
@@ -202,7 +202,7 @@ Task: "Initialize Celery project structure in celery/"
 Task: "Configure ESLint and Prettier for frontend in frontend/.eslintrc.js"
 Task: "Configure pytest and Black for backend in backend/pyproject.toml"
 Task: "Setup Docker configurations in docker/Dockerfile.frontend, docker/Dockerfile.backend, docker/Dockerfile.celery"
-Task: "Create docker-compose.yml and docker-compose.dev.yml in repository root"
+Task: "Create docker-compose.yml and docker-compose.development.yml in repository root"
 ```
 
 ### Phase 2: Contract Tests (All Parallel)

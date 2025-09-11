@@ -17,5 +17,5 @@ The project will be a single project with the following structure:
 - celery/
 - docker/
 - .env
-- .env.local
 - .env.development
+- .env.production

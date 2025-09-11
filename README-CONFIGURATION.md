@@ -18,7 +18,7 @@ The ML Evaluation Platform features a comprehensive, production-ready configurat
 
 ```
 1. Environment Variables (Highest Priority)
-2. .env.local (Local Development)
+2. .env.development (Local Development)
 3. .env.{environment} (Environment-Specific)
 4. .env.template (Default Template)
 5. Configuration Class Defaults (Lowest Priority)
@@ -40,7 +40,7 @@ backend/src/core/
 
 ```bash
 # Copy template and customize
-cp .env.template .env.local
+cp .env.template .env.development
 
 # Activate virtual environment
 source backend/venv/bin/activate
@@ -59,10 +59,10 @@ PYTHONPATH=backend/src python backend/src/core/config_validator.py validate
 
 ```bash
 # Start with development configuration
-docker-compose -f docker-compose.dev.yml up -d
+docker-compose -f docker-compose.development.yml up -d
 
 # Check service health
-docker-compose -f docker-compose.dev.yml ps
+docker-compose -f docker-compose.development.yml ps
 ```
 
 ### 3. Validate Setup
@@ -91,7 +91,7 @@ PYTHONPATH=backend/src python backend/src/core/config_validator.py connectivity
 
 | File | Environment | Features |
 |------|-------------|----------|
-| `docker-compose.dev.yml` | Development | Hot reload, debugging, admin tools |
+| `docker-compose.development.yml` | Development | Hot reload, debugging, admin tools |
 | `docker-compose.yml` | Development | Basic setup |
 | `docker-compose.staging.yml` | Staging | Production-like with monitoring |
 | `docker-compose.production.yml` | Production | Optimized for Cloud Run |
@@ -195,7 +195,7 @@ The platform automatically retrieves secrets from GCP Secret Manager when:
 ./scripts/config-migration.sh init development
 
 # Start development stack
-docker-compose -f docker-compose.dev.yml up -d
+docker-compose -f docker-compose.development.yml up -d
 
 # Access services
 # - Backend API: http://localhost:8000

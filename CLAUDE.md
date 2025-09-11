@@ -21,7 +21,7 @@ frontend/           # Next.js React application
 backend/           # FastAPI Python application
 celery/            # Async task processing
 docker/            # Container configurations
-.env, .env.local, .env.development
+.env, .env.development, .env.production
 ```
 
 ## Core Entities

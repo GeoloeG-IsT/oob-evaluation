@@ -27,7 +27,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Setup environment
-cp ../.env.local .env
+cp ../.env.development .env
 
 # Run database migrations
 alembic upgrade head

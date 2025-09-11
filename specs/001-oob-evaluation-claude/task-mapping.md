@@ -22,7 +22,7 @@ This document provides the missing implementation details and task mappings need
 1. Initialize Next.js 14 project with TypeScript
 2. Configure TailwindCSS for UI components
 3. Setup ESLint and Prettier for code quality
-4. Configure environment variables (.env.local)
+4. Configure environment variables (.env.development)
 5. Setup React Testing Library and Jest
 
 **Component Tasks** (mapped to functional requirements):
@@ -226,7 +226,7 @@ This document provides the missing implementation details and task mappings need
 - **Dockerfile.frontend**: Next.js application container
 - **Dockerfile.celery**: Celery worker container with ML dependencies
 - **docker-compose.yml**: Complete stack orchestration
-- **docker-compose.dev.yml**: Development environment overrides
+- **docker-compose.development.yml**: Development environment overrides
 
 ## Dependency Graph
 

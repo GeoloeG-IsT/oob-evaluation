@@ -26,7 +26,7 @@ The ML Evaluation Platform uses a hierarchical configuration system:
 ### Configuration Hierarchy
 
 1. Environment variables (highest priority)
-2. `.env.local` file (local development)
+2. `.env.development` file (local development)
 3. `.env.{environment}` file (environment-specific)
 4. `.env` file (defaults)
 5. Configuration class defaults (lowest priority)
@@ -46,7 +46,7 @@ The ML Evaluation Platform uses a hierarchical configuration system:
 
 1. **Copy the template file:**
    ```bash
-   cp .env.template .env.local
+   cp .env.template .env.development
    ```
 
 2. **Configure for your environment:**
@@ -228,13 +228,13 @@ GPU support is configured in the Cloud Run job specifications.
 
 ```bash
 # Start development environment
-docker-compose -f docker-compose.dev.yml up -d
+docker-compose -f docker-compose.development.yml up -d
 
 # Check services
-docker-compose -f docker-compose.dev.yml ps
+docker-compose -f docker-compose.development.yml ps
 
 # View logs
-docker-compose -f docker-compose.dev.yml logs -f backend
+docker-compose -f docker-compose.development.yml logs -f backend
 ```
 
 ### Staging Deployment

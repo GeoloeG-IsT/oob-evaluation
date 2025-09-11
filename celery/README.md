@@ -18,7 +18,7 @@ Asynchronous task processing for ML operations including model training, batch i
 pip install -r requirements.txt
 
 # Setup environment
-cp ../.env.local .env
+cp ../.env.development .env
 
 # Start workers (separate terminals)
 celery -A src.celery_app worker --loglevel=info --queue=training
