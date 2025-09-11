@@ -40,7 +40,7 @@
     "eslint-config-next": "15.5.3",
     "@eslint/eslintrc": "^3",
     "@next/bundle-analyzer": "^15.5.3",
-    "@size-limit/preset-next": "^11.1.6",
+    "@size-limit/preset-app": "^11.2.0",
     "bundle-stats": "^4.16.0",
     "cross-env": "^7.0.3",
     "lighthouse": "^12.2.1",

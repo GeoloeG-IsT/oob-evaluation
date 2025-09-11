@@ -1,5 +1,5 @@
 # Celery workers with ML dependencies
-FROM python:3.11-slim
+FROM python:3.11-slim AS base
 
 # Set working directory
 WORKDIR /app
@@ -61,5 +61,17 @@ ENV C_FORCE_ROOT=1
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD celery -A src.celery_app inspect ping || exit 1
 
+# Production stage
+FROM base AS production
+
 # Default command (can be overridden)
 CMD ["celery", "-A", "src.celery_app", "worker", "--loglevel=info"]
+
+# Development stage
+FROM base AS development
+
+# Install development dependencies
+RUN pip install --no-cache-dir debugpy ipython
+
+# Development command with hot reload capabilities
+CMD ["celery", "-A", "src.celery_app", "worker", "--loglevel=debug"]

@@ -296,21 +296,6 @@ services:
       - redis
     restart: unless-stopped
 
-  # Jupyter Notebook (For ML experimentation)
-  jupyter:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.jupyter
-    ports:
-      - "8888:8888"
-    environment:
-      - JUPYTER_ENABLE_LAB=yes
-      - JUPYTER_TOKEN=dev123
-    volumes:
-      - ./notebooks:/home/jovyan/work
-      - ./data:/home/jovyan/work/data
-      - ./backend/src:/home/jovyan/work/src:ro
-    restart: unless-stopped
 
 volumes:
   dev_postgres_data:
@@ -324,9 +309,3 @@ networks:
       config:
         - subnet: 172.19.0.0/16
 
-# Development-specific logging (verbose)
-x-logging: &default-logging
-  driver: "json-file"
-  options:
-    max-size: "10m"
-    max-file: "3"

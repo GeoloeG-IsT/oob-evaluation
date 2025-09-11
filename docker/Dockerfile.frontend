@@ -46,3 +46,29 @@ ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
 CMD ["node", "server.js"]
+
+# Development stage with hot reload
+FROM base AS development
+WORKDIR /app
+
+ENV NODE_ENV development
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Install all dependencies including dev dependencies
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci
+
+# Copy source files
+COPY frontend/ .
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+# Run development server with hot reload
+CMD ["npm", "run", "dev"]
