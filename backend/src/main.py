@@ -4,11 +4,14 @@ ML Evaluation Platform Backend API
 FastAPI application for object detection and segmentation model evaluation.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
+
+from .routers import images, annotations
 
 # Load environment variables
 load_dotenv()
@@ -41,6 +44,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Custom exception handler to flatten error responses
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    # If detail is a dict with an error key, flatten it to match API contract
+    if isinstance(exc.detail, dict) and "error" in exc.detail:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.detail,
+            headers={"content-type": "application/json"}
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": str(exc.detail)},
+        headers={"content-type": "application/json"}
+    )
+
+# Include routers
+app.include_router(images.router)
+app.include_router(annotations.router)
 
 
 @app.get("/")
