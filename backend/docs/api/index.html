@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Evaluation Platform API</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 10px; margin-bottom: 2rem; }
+        .endpoint { background: #f8f9fa; border-left: 4px solid #007bff; padding: 1rem; margin: 1rem 0; border-radius: 5px; }
+        .method { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 3px; color: white; font-weight: bold; margin-right: 1rem; }
+        .method.get { background: #28a745; }
+        .method.post { background: #007bff; }
+        .method.put { background: #ffc107; color: #000; }
+        .method.patch { background: #fd7e14; }
+        .method.delete { background: #dc3545; }
+        .schema { background: #e9ecef; padding: 1rem; border-radius: 5px; font-family: monospace; white-space: pre-wrap; }
+        .toc { background: #f8f9fa; padding: 1rem; border-radius: 5px; margin-bottom: 2rem; }
+        .toc ul { margin: 0; padding-left: 1.5rem; }
+        h1, h2, h3 { color: #333; }
+        code { background: #f1f3f4; padding: 0.2rem 0.4rem; border-radius: 3px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ML Evaluation Platform API</h1>
+        <p>API for object detection and segmentation model evaluation platform</p>
+        <p><strong>Version:</strong> 1.0.0 | <strong>Generated:</strong> 2025-09-11 17:24:19</p>
+    </div>
+    
+    <div class="toc">
+        <h2>Table of Contents</h2>
+        <ul>
+            <li><a href="#uploadImages">POST /api/v1/images</a> - Upload image files</li>\n            <li><a href="#listImages">GET /api/v1/images</a> - List images</li>\n            <li><a href="#getImage">GET /api/v1/images/{image_id}</a> - Get image details</li>\n            <li><a href="#createAnnotation">POST /api/v1/annotations</a> - Create manual annotation</li>\n            <li><a href="#listAnnotations">GET /api/v1/annotations</a> - List annotations</li>\n            <li><a href="#generateAssistedAnnotation">POST /api/v1/annotations/assisted</a> - Generate assisted annotation</li>\n            <li><a href="#listModels">GET /api/v1/models</a> - List available models</li>\n            <li><a href="#getModel">GET /api/v1/models/{model_id}</a> - Get model details</li>\n            <li><a href="#runSingleInference">POST /api/v1/inference/single</a> - Run single image inference</li>\n            <li><a href="#runBatchInference">POST /api/v1/inference/batch</a> - Run batch inference</li>\n            <li><a href="#getInferenceJob">GET /api/v1/inference/jobs/{job_id}</a> - Get inference job status</li>\n            <li><a href="#startTraining">POST /api/v1/training/jobs</a> - Start model training</li>\n            <li><a href="#getTrainingJob">GET /api/v1/training/jobs/{job_id}</a> - Get training job status</li>\n            <li><a href="#calculateMetrics">POST /api/v1/evaluation/metrics</a> - Calculate performance metrics</li>\n            <li><a href="#compareModels">POST /api/v1/evaluation/compare</a> - Compare model performance</li>\n            <li><a href="#deployModel">POST /api/v1/deployments</a> - Deploy model</li>\n            <li><a href="#listDeployments">GET /api/v1/deployments</a> - List deployments</li>\n            <li><a href="#getDeployment">GET /api/v1/deployments/{deployment_id}</a> - Get deployment details</li>\n            <li><a href="#updateDeployment">PATCH /api/v1/deployments/{deployment_id}</a> - Update deployment</li>\n            <li><a href="#exportAnnotations">POST /api/v1/export/annotations</a> - Export annotations</li>\n        </ul>\n    </div>\n\n
+    <div id="uploadImages" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/images</h3>
+        <h4>Upload image files</h4>
+        <p>Upload images to the server for processing and evaluation</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> multipart/form-data</p>\n        <div class="schema">{
+  "type": "object",
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "binary"
+      }
+    },
+    "dataset_split": {
+      "type": "string",
+      "enum": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "default": "train"
+    }
+  },
+  "required": [
+    "files"
+  ]
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 201</h5>\n        <p>Images uploaded successfully</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/ImageUploadResponse"
+}</div>\n        <h5>Status 400</h5>\n        <p>No description</p>\n        <h5>Status 413</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="listImages" class="endpoint">
+        <h3><span class="method get">GET</span>/api/v1/images</h3>
+        <h4>List images</h4>
+        <p>Retrieve list of uploaded images with filtering</p>
+        
+        <h4>Parameters</h4>
+        <ul>\n            <li><code>dataset_split</code> (query) - string</li>\n            <li><code>limit</code> (query) - integer</li>\n            <li><code>offset</code> (query) - integer</li>\n        </ul>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>List of images</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/ImageListResponse"
+}</div>\n    </div>\n
+    <div id="getImage" class="endpoint">
+        <h3><span class="method get">GET</span>/api/v1/images/{image_id}</h3>
+        <h4>Get image details</h4>
+        <p>Retrieve detailed information about a specific image</p>
+        
+        <h4>Parameters</h4>
+        <ul>\n            <li><code>image_id</code> (path) - string (required)</li>\n        </ul>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Image details</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/Image"
+}</div>\n        <h5>Status 404</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="createAnnotation" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/annotations</h3>
+        <h4>Create manual annotation</h4>
+        <p>Create user annotation for an image</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/CreateAnnotationRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 201</h5>\n        <p>Annotation created</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/Annotation"
+}</div>\n        <h5>Status 400</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="listAnnotations" class="endpoint">
+        <h3><span class="method get">GET</span>/api/v1/annotations</h3>
+        <h4>List annotations</h4>
+        <p>Retrieve annotations with filtering options</p>
+        
+        <h4>Parameters</h4>
+        <ul>\n            <li><code>image_id</code> (query) - string</li>\n            <li><code>model_id</code> (query) - string</li>\n            <li><code>creation_method</code> (query) - string</li>\n        </ul>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>List of annotations</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/AnnotationListResponse"
+}</div>\n    </div>\n
+    <div id="generateAssistedAnnotation" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/annotations/assisted</h3>
+        <h4>Generate assisted annotation</h4>
+        <p>Use pre-trained model to generate annotation suggestions</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/AssistedAnnotationRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 201</h5>\n        <p>Assisted annotation generated</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/Annotation"
+}</div>\n        <h5>Status 400</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="listModels" class="endpoint">
+        <h3><span class="method get">GET</span>/api/v1/models</h3>
+        <h4>List available models</h4>
+        <p>Retrieve list of available models for inference and training</p>
+        
+        <h4>Parameters</h4>
+        <ul>\n            <li><code>type</code> (query) - string</li>\n            <li><code>framework</code> (query) - string</li>\n        </ul>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>List of models</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/ModelListResponse"
+}</div>\n    </div>\n
+    <div id="getModel" class="endpoint">
+        <h3><span class="method get">GET</span>/api/v1/models/{model_id}</h3>
+        <h4>Get model details</h4>
+        <p>Retrieve detailed information about a specific model</p>
+        
+        <h4>Parameters</h4>
+        <ul>\n            <li><code>model_id</code> (path) - string (required)</li>\n        </ul>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Model details</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/Model"
+}</div>\n        <h5>Status 404</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="runSingleInference" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/inference/single</h3>
+        <h4>Run single image inference</h4>
+        <p>Run model inference on a single image</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/SingleInferenceRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Inference completed</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/InferenceResult"
+}</div>\n        <h5>Status 400</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="runBatchInference" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/inference/batch</h3>
+        <h4>Run batch inference</h4>
+        <p>Run model inference on multiple images</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/BatchInferenceRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 202</h5>\n        <p>Batch inference job created</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/InferenceJob"
+}</div>\n        <h5>Status 400</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="getInferenceJob" class="endpoint">
+        <h3><span class="method get">GET</span>/api/v1/inference/jobs/{job_id}</h3>
+        <h4>Get inference job status</h4>
+        <p>Monitor batch inference job progress</p>
+        
+        <h4>Parameters</h4>
+        <ul>\n            <li><code>job_id</code> (path) - string (required)</li>\n        </ul>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Job status</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/InferenceJob"
+}</div>\n        <h5>Status 404</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="startTraining" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/training/jobs</h3>
+        <h4>Start model training</h4>
+        <p>Initiate fine-tuning of a model with user annotations</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/TrainingRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 202</h5>\n        <p>Training job created</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/TrainingJob"
+}</div>\n        <h5>Status 400</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="getTrainingJob" class="endpoint">
+        <h3><span class="method get">GET</span>/api/v1/training/jobs/{job_id}</h3>
+        <h4>Get training job status</h4>
+        <p>Monitor training job progress and logs</p>
+        
+        <h4>Parameters</h4>
+        <ul>\n            <li><code>job_id</code> (path) - string (required)</li>\n        </ul>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Training job status</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/TrainingJob"
+}</div>\n        <h5>Status 404</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="calculateMetrics" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/evaluation/metrics</h3>
+        <h4>Calculate performance metrics</h4>
+        <p>Evaluate model performance on test data</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/MetricsRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Performance metrics calculated</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/MetricsResponse"
+}</div>\n        <h5>Status 400</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="compareModels" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/evaluation/compare</h3>
+        <h4>Compare model performance</h4>
+        <p>Compare performance metrics between multiple models</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/ModelComparisonRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Model comparison results</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/ModelComparisonResponse"
+}</div>\n    </div>\n
+    <div id="deployModel" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/deployments</h3>
+        <h4>Deploy model</h4>
+        <p>Deploy trained model as REST API endpoint</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/DeploymentRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 202</h5>\n        <p>Deployment initiated</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/Deployment"
+}</div>\n        <h5>Status 400</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="listDeployments" class="endpoint">
+        <h3><span class="method get">GET</span>/api/v1/deployments</h3>
+        <h4>List deployments</h4>
+        <p>Retrieve list of deployed models</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>List of deployments</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/DeploymentListResponse"
+}</div>\n    </div>\n
+    <div id="getDeployment" class="endpoint">
+        <h3><span class="method get">GET</span>/api/v1/deployments/{deployment_id}</h3>
+        <h4>Get deployment details</h4>
+        <p>Retrieve deployment status and metrics</p>
+        
+        <h4>Parameters</h4>
+        <ul>\n            <li><code>deployment_id</code> (path) - string (required)</li>\n        </ul>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Deployment details</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/Deployment"
+}</div>\n        <h5>Status 404</h5>\n        <p>No description</p>\n    </div>\n
+    <div id="updateDeployment" class="endpoint">
+        <h3><span class="method patch">PATCH</span>/api/v1/deployments/{deployment_id}</h3>
+        <h4>Update deployment</h4>
+        <p>Update deployment configuration or status</p>
+        
+        <h4>Parameters</h4>
+        <ul>\n            <li><code>deployment_id</code> (path) - string (required)</li>\n        </ul>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/DeploymentUpdateRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Deployment updated</p>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/Deployment"
+}</div>\n    </div>\n
+    <div id="exportAnnotations" class="endpoint">
+        <h3><span class="method post">POST</span>/api/v1/export/annotations</h3>
+        <h4>Export annotations</h4>
+        <p>Export annotations in standard formats</p>
+        
+        <h4>Parameters</h4>
+        <p>No parameters</p>\n        <h4>Request Body</h4>\n        <p><strong>Content-Type:</strong> application/json</p>\n        <div class="schema">{
+  "$ref": "#/components/schemas/ExportRequest"
+}</div>\n        <h4>Responses</h4>\n        <h5>Status 200</h5>\n        <p>Export file</p>\n        <p><strong>Content-Type:</strong> application/zip</p>\n        <div class="schema">{
+  "type": "string",
+  "format": "binary"
+}</div>\n        <h5>Status 400</h5>\n        <p>No description</p>\n    </div>\n
+</body>
+</html>
