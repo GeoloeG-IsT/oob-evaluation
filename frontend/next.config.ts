@@ -36,9 +36,16 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 
-  // Bundle splitting and optimization
-  webpack: (config, { dev, isServer, webpack }) => {
-    // Production optimizations
+  // Webpack configuration (only used for production builds, not with Turbopack)
+  // Note: These optimizations are automatically handled by Turbopack in development
+  // Warning: Having this config will show a warning when using Turbopack, but it's safe to ignore
+  webpack: (config, { dev, webpack }) => {
+    // Skip Webpack customization in development when using Turbopack
+    if (dev && process.env.TURBOPACK === "1") {
+      return config;
+    }
+
+    // Production optimizations (only applied during build)
     if (!dev) {
       // Enable bundle splitting
       config.optimization = {
@@ -93,15 +100,17 @@ const nextConfig: NextConfig = {
       }
     }
 
-    // Tree shaking optimization
-    config.optimization.usedExports = true;
-    
-    // Custom module resolution for better tree shaking
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      // Optimize lodash imports
-      lodash: "lodash-es",
-    };
+    // Tree shaking optimization (only for Webpack builds)
+    if (!dev) {
+      config.optimization.usedExports = true;
+      
+      // Custom module resolution for better tree shaking
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        // Optimize lodash imports
+        lodash: "lodash-es",
+      };
+    }
 
     return config;
   },

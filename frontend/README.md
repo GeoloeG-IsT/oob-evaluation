@@ -8,7 +8,7 @@ Web interface for evaluating Object Detection and Segmentation models (YOLO11/12
 - **React**: 19.1.0
 - **TypeScript**: 5.x
 - **Styling**: Tailwind CSS v4
-- **Build**: Turbopack
+- **Build**: Turbopack (development) / Webpack (production)
 - **Performance Monitoring**: Lighthouse, Bundle Analyzer, Size Limit
 
 ## Features
@@ -148,6 +148,17 @@ The frontend includes several performance optimization tools:
 - **Code Splitting**: Automatic code splitting with Next.js
 - **Image Optimization**: Next.js Image component for optimized loading
 
+### Build Configuration
+
+- **Development**: Uses Turbopack for fast HMR and builds
+- **Production**: Uses Webpack with custom optimization settings
+  - Aggressive code splitting for better caching
+  - Separate bundles for React, vendors, and common code
+  - Tree shaking with optimized imports
+  - Bundle analysis available with `npm run build:analyze`
+
+Note: Webpack-specific configurations in `next.config.ts` only apply to production builds. Turbopack handles optimization automatically during development.
+
 ## API Integration
 
 The frontend communicates with the backend API at `http://localhost:8000`. Key endpoints:
@@ -191,6 +202,15 @@ WebSocket connections for real-time updates:
 - Check WebSocket connections in Network > WS tab
 - Use Lighthouse for performance insights
 - Regular bundle size checks with `npm run size-limit`
+
+### Note on Turbopack Warning
+
+When running `npm run dev`, you'll see a warning:
+```
+⚠ Webpack is configured while Turbopack is not, which may cause problems.
+```
+
+This is expected and safe to ignore. The Webpack configuration in `next.config.ts` is only used for production builds. Turbopack automatically handles optimization during development.
 
 ## License
 
