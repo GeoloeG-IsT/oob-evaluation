@@ -51,3 +51,5 @@ details where it can find the information as it walks through each step in the c
 ### Tasks
 
 - /tasks
+- Don't forget to set a venv before installing the python dependencies
+- Add a .gitignore file with all .env and *.pyc files
