@@ -12,18 +12,37 @@ import os
 from dotenv import load_dotenv
 
 from .routers import images, annotations, models, inference, training, evaluation, deployments, export
+from .database.connection import init_db, close_db, health_check as db_health_check
+from .utils.logging import configure_logging, LoggingMiddleware, get_logger, logging_health_check
 
 # Load environment variables
 load_dotenv()
+
+# Configure structured logging
+configure_logging()
+logger = get_logger("main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
-    print("🚀 ML Evaluation Platform Backend starting...")
+    logger.info("ML Evaluation Platform Backend starting")
+    try:
+        await init_db()
+        logger.info("Database connection initialized successfully")
+    except Exception as e:
+        logger.error("Failed to initialize database", error=str(e))
+        raise
+    
     yield
+    
     # Shutdown
-    print("🛑 ML Evaluation Platform Backend shutting down...")
+    logger.info("ML Evaluation Platform Backend shutting down")
+    try:
+        await close_db()
+        logger.info("Database connection closed successfully")
+    except Exception as e:
+        logger.error("Error closing database connection", error=str(e))
 
 
 # Create FastAPI application
@@ -35,6 +54,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Add logging middleware for request/response tracking
+app.add_middleware(LoggingMiddleware)
 
 # Configure CORS
 app.add_middleware(
@@ -85,11 +107,34 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "version": "1.0.0",
-    }
+    """Comprehensive health check endpoint."""
+    try:
+        # Get database health
+        db_health = await db_health_check()
+        
+        # Get logging health
+        logging_health = logging_health_check()
+        
+        # Determine overall status
+        overall_status = "healthy"
+        if db_health.get("database", {}).get("status") != "connected":
+            overall_status = "degraded"
+        
+        return {
+            "status": overall_status,
+            "version": "1.0.0",
+            "timestamp": logger._context.get("timestamp") if hasattr(logger, '_context') else None,
+            "database": db_health,
+            "logging": logging_health,
+        }
+        
+    except Exception as e:
+        logger.error("Health check failed", error=str(e))
+        return {
+            "status": "unhealthy",
+            "version": "1.0.0",
+            "error": str(e),
+        }
 
 
 if __name__ == "__main__":
