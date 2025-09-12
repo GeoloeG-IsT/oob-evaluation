@@ -1,0 +1,133 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ml-eval-backend
+  namespace: default
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+    run.googleapis.com/cpu-throttling: "false"
+  labels:
+    app: ml-eval-platform
+    component: backend
+    env: production
+spec:
+  template:
+    metadata:
+      annotations:
+        # Resource allocation
+        run.googleapis.com/cpu: "2"
+        run.googleapis.com/memory: "4Gi"
+        run.googleapis.com/max-instances: "10"
+        run.googleapis.com/min-instances: "1"
+        
+        # Performance optimizations
+        run.googleapis.com/startup-cpu-boost: "true"
+        run.googleapis.com/execution-environment: "gen2"
+        
+        # VPC and database connectivity
+        run.googleapis.com/cloudsql-instances: "PROJECT_ID:REGION:ml-eval-db"
+        run.googleapis.com/vpc-access-connector: "projects/PROJECT_ID/locations/REGION/connectors/ml-eval-connector"
+        run.googleapis.com/vpc-access-egress: "private-ranges-only"
+        
+        # Timeout settings
+        run.googleapis.com/timeout: "3600s"
+      labels:
+        app: ml-eval-platform
+        component: backend
+        env: production
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 3600
+      serviceAccountName: ml-eval-backend-sa@PROJECT_ID.iam.gserviceaccount.com
+      
+      containers:
+      - name: backend
+        image: gcr.io/PROJECT_ID/ml-eval-backend:TAG
+        ports:
+        - name: http1
+          containerPort: 8080
+        
+        # Resource requests and limits
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        
+        # Health checks
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 30
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Environment variables
+        env:
+        - name: ENV
+          value: "production"
+        - name: PORT
+          value: "8080"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ml-eval-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: ml-eval-secrets
+              key: redis-url
+        - name: BACKEND_URL
+          value: "https://ml-eval-backend-PROJECT_ID.REGION.run.app"
+        - name: FRONTEND_URL
+          value: "https://ml-eval-frontend-PROJECT_ID.REGION.run.app"
+        - name: GOOGLE_CLOUD_PROJECT
+          value: "PROJECT_ID"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: PYTHONDONTWRITEBYTECODE
+          value: "1"
+        
+        # Volume mounts for Cloud Storage
+        volumeMounts:
+        - name: gcs-fuse
+          mountPath: /app/data
+          readOnly: false
+      
+      # Volumes
+      volumes:
+      - name: gcs-fuse
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          readOnly: false
+          volumeAttributes:
+            bucketName: "ml-eval-storage-PROJECT_ID"
+            mountOptions: "implicit-dirs"
+  
+  traffic:
+  - percent: 100
+    latestRevision: true

@@ -1,0 +1,159 @@
+# Docker Compose override for T085 validation environment
+# This extends the main docker-compose.yml with validation-specific configurations
+
+
+services:
+  # Enhanced backend with validation-friendly settings
+  backend:
+    environment:
+      - LOG_LEVEL=DEBUG
+      - VALIDATION_MODE=true
+      - API_REQUEST_TIMEOUT=120
+      - MAX_FILE_SIZE=100MB
+    volumes:
+      - ./t085_validation_data:/app/validation_data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Enhanced frontend with validation settings
+  frontend:
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_VALIDATION_MODE=true
+      - NODE_ENV=development
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Database with validation-optimized settings
+  db:
+    environment:
+      - POSTGRES_DB=ml_eval_platform
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    command: >
+      postgres
+      -c log_statement=all
+      -c log_destination=stderr
+      -c log_min_messages=info
+      -c max_connections=100
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ml_eval_platform"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  # Redis with validation settings
+  redis:
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # Celery workers with validation-friendly configurations
+  celery-training:
+    environment:
+      - CELERY_LOG_LEVEL=INFO
+      - VALIDATION_MODE=true
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A src.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  celery-inference:
+    environment:
+      - CELERY_LOG_LEVEL=INFO
+      - VALIDATION_MODE=true
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A src.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  celery-evaluation:
+    environment:
+      - CELERY_LOG_LEVEL=INFO
+      - VALIDATION_MODE=true
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A src.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  celery-deployment:
+    environment:
+      - CELERY_LOG_LEVEL=INFO
+      - VALIDATION_MODE=true
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A src.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Flower with enhanced monitoring for validation
+  flower:
+    environment:
+      - FLOWER_PORT=5555
+      - FLOWER_BASIC_AUTH=admin:validation123
+    ports:
+      - "5555:5555"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Optional: Add a validation coordinator service
+  validation-coordinator:
+    image: python:3.11-slim
+    working_dir: /validation
+    volumes:
+      - .:/validation
+    environment:
+      - PYTHONPATH=/validation
+      - BACKEND_URL=http://backend:8000
+      - FRONTEND_URL=http://frontend:3000
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ml_eval_platform
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      bash -c "
+        pip install -r t085_requirements.txt &&
+        python t085_comprehensive_validator.py --manual
+      "
+    profiles:
+      - validation
+
+volumes:
+  validation_data:
+    driver: local

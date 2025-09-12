@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Evaluation Platform - Documentation</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .header h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .nav-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .nav-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-decoration: none;
+        }
+        .nav-card h3 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        .nav-card p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .nav-card .icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .api { border-left-color: #007bff; }
+        .guides { border-left-color: #28a745; }
+        .examples { border-left-color: #ffc107; }
+        .github { border-left-color: #6f42c1; }
+        
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e9ecef;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .stats {
+            background: #e7f3ff;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 2rem 0;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .stat-item {
+            font-weight: bold;
+        }
+        
+        .stat-item .number {
+            display: block;
+            font-size: 1.5rem;
+            color: #007bff;
+        }
+        
+        .stat-item .label {
+            font-size: 0.8rem;
+            color: #666;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 ML Evaluation Platform</h1>
+            <p>Comprehensive API Documentation</p>
+        </div>
+
+        <div class="stats">
+            <h3>Documentation Overview</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="number">54</span>
+                    <span class="label">API Endpoints</span>
+                </div>
+                <div class="stat-item">
+                    <span class="number">8</span>
+                    <span class="label">Routers</span>
+                </div>
+                <div class="stat-item">
+                    <span class="number">4</span>
+                    <span class="label">Dev Guides</span>
+                </div>
+                <div class="stat-item">
+                    <span class="number">100+</span>
+                    <span class="label">Code Examples</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-grid">
+            <a href="api/index.html" class="nav-card api">
+                <div class="icon">📚</div>
+                <h3>API Reference</h3>
+                <p>Complete interactive documentation for all 54 endpoints with request/response examples</p>
+            </a>
+
+            <a href="guides/quick-start.md" class="nav-card guides">
+                <div class="icon">🚀</div>
+                <h3>Quick Start Guide</h3>
+                <p>Get up and running quickly with common workflows and usage patterns</p>
+            </a>
+
+            <a href="examples/curl_examples.sh" class="nav-card examples">
+                <div class="icon">💻</div>
+                <h3>Code Examples</h3>
+                <p>Ready-to-use cURL commands and Python code for all major operations</p>
+            </a>
+
+            <a href="api/openapi.json" class="nav-card api">
+                <div class="icon">🔧</div>
+                <h3>OpenAPI Spec</h3>
+                <p>Machine-readable API specification for SDK generation and tooling</p>
+            </a>
+
+            <a href="guides/error-handling.md" class="nav-card guides">
+                <div class="icon">⚠️</div>
+                <h3>Error Handling</h3>
+                <p>Comprehensive guide to API errors, status codes, and best practices</p>
+            </a>
+
+            <a href="examples/python_examples.py" class="nav-card examples">
+                <div class="icon">🐍</div>
+                <h3>Python SDK</h3>
+                <p>Complete Python client with examples for all API operations</p>
+            </a>
+        </div>
+
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 1rem; border-radius: 5px; margin: 2rem 0;">
+            <h4 style="margin-top: 0; color: #856404;">🌟 Key Features</h4>
+            <ul style="margin-bottom: 0;">
+                <li><strong>Image Management:</strong> Upload, organize, and manage training datasets</li>
+                <li><strong>Model Operations:</strong> YOLO11/12, RT-DETR, and SAM2 support with variants</li>
+                <li><strong>Annotation Tools:</strong> Manual and AI-assisted annotation workflows</li>
+                <li><strong>Training Pipeline:</strong> Fine-tune models with custom datasets</li>
+                <li><strong>Inference Engine:</strong> Single and batch processing with real-time monitoring</li>
+                <li><strong>Performance Evaluation:</strong> mAP, IoU, precision, recall, and F1 metrics</li>
+                <li><strong>Model Deployment:</strong> Deploy trained models as REST API endpoints</li>
+                <li><strong>Data Export:</strong> Export annotations in COCO, YOLO, and Pascal VOC formats</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p><strong>ML Evaluation Platform API Documentation</strong></p>
+            <p>Generated automatically from OpenAPI specification</p>
+            <p>Version 1.0.0 | <a href="https://github.com/your-repo/ml-evaluation-platform" style="color: #007bff;">View on GitHub</a></p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,364 @@
+{
+  "endpoints": {
+    "POST /api/v1/images": {
+      "description": "Upload images to the platform",
+      "request": {
+        "content_type": "multipart/form-data",
+        "example": {
+          "files": [
+            "@sample_image1.jpg",
+            "@sample_image2.jpg"
+          ],
+          "dataset_split": "train"
+        }
+      },
+      "response": {
+        "status": 201,
+        "content_type": "application/json",
+        "example": {
+          "uploaded_images": [
+            {
+              "id": "123e4567-e89b-12d3-a456-426614174000",
+              "filename": "sample_image1.jpg",
+              "file_path": "/uploads/sample_image1.jpg",
+              "file_size": 1024000,
+              "format": "JPEG",
+              "width": 1920,
+              "height": 1080,
+              "dataset_split": "train",
+              "upload_timestamp": "2024-01-15T10:30:00Z",
+              "metadata": {}
+            }
+          ],
+          "total_count": 2,
+          "success_count": 2,
+          "failed_count": 0
+        }
+      }
+    },
+    "GET /api/v1/images": {
+      "description": "List uploaded images",
+      "request": {
+        "parameters": {
+          "dataset_split": "train",
+          "limit": 10,
+          "offset": 0
+        }
+      },
+      "response": {
+        "status": 200,
+        "example": {
+          "images": [
+            {
+              "id": "123e4567-e89b-12d3-a456-426614174000",
+              "filename": "sample_image1.jpg",
+              "file_path": "/uploads/sample_image1.jpg",
+              "file_size": 1024000,
+              "format": "JPEG",
+              "width": 1920,
+              "height": 1080,
+              "dataset_split": "train",
+              "upload_timestamp": "2024-01-15T10:30:00Z",
+              "metadata": {}
+            }
+          ],
+          "total_count": 1,
+          "limit": 10,
+          "offset": 0
+        }
+      }
+    },
+    "POST /api/v1/annotations": {
+      "description": "Create manual annotation",
+      "request": {
+        "content_type": "application/json",
+        "example": {
+          "image_id": "123e4567-e89b-12d3-a456-426614174000",
+          "bounding_boxes": [
+            {
+              "x": 100,
+              "y": 50,
+              "width": 200,
+              "height": 150,
+              "class_id": 0,
+              "confidence": 1.0
+            }
+          ],
+          "segments": [
+            {
+              "polygon": [
+                [
+                  100,
+                  50
+                ],
+                [
+                  300,
+                  50
+                ],
+                [
+                  300,
+                  200
+                ],
+                [
+                  100,
+                  200
+                ]
+              ],
+              "class_id": 0,
+              "confidence": 1.0
+            }
+          ],
+          "class_labels": [
+            "person"
+          ],
+          "user_tag": "manual_annotation",
+          "metadata": {
+            "annotator": "user123",
+            "annotation_time": 45
+          }
+        }
+      },
+      "response": {
+        "status": 201,
+        "example": {
+          "id": "456e7890-e89b-12d3-a456-426614174001",
+          "image_id": "123e4567-e89b-12d3-a456-426614174000",
+          "bounding_boxes": [
+            {
+              "x": 100,
+              "y": 50,
+              "width": 200,
+              "height": 150,
+              "class_id": 0,
+              "confidence": 1.0
+            }
+          ],
+          "segments": [
+            {
+              "polygon": [
+                [
+                  100,
+                  50
+                ],
+                [
+                  300,
+                  50
+                ],
+                [
+                  300,
+                  200
+                ],
+                [
+                  100,
+                  200
+                ]
+              ],
+              "class_id": 0,
+              "confidence": 1.0
+            }
+          ],
+          "class_labels": [
+            "person"
+          ],
+          "confidence_scores": [
+            1.0
+          ],
+          "creation_method": "user",
+          "model_id": null,
+          "user_tag": "manual_annotation",
+          "created_at": "2024-01-15T10:35:00Z",
+          "metadata": {
+            "annotator": "user123",
+            "annotation_time": 45
+          }
+        }
+      }
+    },
+    "POST /api/v1/inference/single": {
+      "description": "Run inference on single image",
+      "request": {
+        "content_type": "application/json",
+        "example": {
+          "image_id": "123e4567-e89b-12d3-a456-426614174000",
+          "model_id": "789e0123-e89b-12d3-a456-426614174002",
+          "confidence_threshold": 0.5
+        }
+      },
+      "response": {
+        "status": 200,
+        "example": {
+          "image_id": "123e4567-e89b-12d3-a456-426614174000",
+          "model_id": "789e0123-e89b-12d3-a456-426614174002",
+          "predictions": [
+            {
+              "id": "pred-456e7890-e89b-12d3-a456-426614174001",
+              "image_id": "123e4567-e89b-12d3-a456-426614174000",
+              "bounding_boxes": [
+                {
+                  "x": 120,
+                  "y": 60,
+                  "width": 180,
+                  "height": 140,
+                  "class_id": 0,
+                  "confidence": 0.85
+                }
+              ],
+              "segments": [],
+              "class_labels": [
+                "person"
+              ],
+              "confidence_scores": [
+                0.85
+              ],
+              "creation_method": "model",
+              "model_id": "789e0123-e89b-12d3-a456-426614174002",
+              "user_tag": null,
+              "created_at": "2024-01-15T10:40:00Z",
+              "metadata": {}
+            }
+          ],
+          "execution_time": 0.125,
+          "timestamp": "2024-01-15T10:40:00Z"
+        }
+      }
+    },
+    "POST /api/v1/training/jobs": {
+      "description": "Start model training job",
+      "request": {
+        "content_type": "application/json",
+        "example": {
+          "base_model_id": "789e0123-e89b-12d3-a456-426614174002",
+          "dataset_id": "abc1234-e89b-12d3-a456-426614174003",
+          "hyperparameters": {
+            "epochs": 50,
+            "batch_size": 16,
+            "learning_rate": 0.001,
+            "patience": 10
+          },
+          "metadata": {
+            "experiment_name": "custom_training_v1",
+            "description": "Fine-tuning YOLO11 on custom dataset"
+          }
+        }
+      },
+      "response": {
+        "status": 202,
+        "example": {
+          "id": "train-def5678-e89b-12d3-a456-426614174004",
+          "base_model_id": "789e0123-e89b-12d3-a456-426614174002",
+          "dataset_id": "abc1234-e89b-12d3-a456-426614174003",
+          "status": "queued",
+          "progress_percentage": 0.0,
+          "hyperparameters": {
+            "epochs": 50,
+            "batch_size": 16,
+            "learning_rate": 0.001,
+            "patience": 10
+          },
+          "execution_logs": "",
+          "start_time": null,
+          "end_time": null,
+          "result_model_id": null,
+          "created_at": "2024-01-15T10:45:00Z",
+          "metadata": {
+            "experiment_name": "custom_training_v1",
+            "description": "Fine-tuning YOLO11 on custom dataset"
+          }
+        }
+      }
+    },
+    "POST /api/v1/deployments": {
+      "description": "Deploy a model",
+      "request": {
+        "content_type": "application/json",
+        "example": {
+          "model_id": "789e0123-e89b-12d3-a456-426614174002",
+          "version": "v1.0.0",
+          "configuration": {
+            "replicas": 2,
+            "cpu_limit": "2000m",
+            "memory_limit": "4Gi",
+            "gpu_required": true
+          },
+          "metadata": {
+            "environment": "production",
+            "description": "Production deployment of custom trained model"
+          }
+        }
+      },
+      "response": {
+        "status": 202,
+        "example": {
+          "id": "deploy-ghi9012-e89b-12d3-a456-426614174005",
+          "model_id": "789e0123-e89b-12d3-a456-426614174002",
+          "endpoint_url": "https://api.ml-eval.cloud/models/deploy-ghi9012/predict",
+          "version": "v1.0.0",
+          "status": "deploying",
+          "configuration": {
+            "replicas": 2,
+            "cpu_limit": "2000m",
+            "memory_limit": "4Gi",
+            "gpu_required": true
+          },
+          "performance_monitoring": {},
+          "created_at": "2024-01-15T10:50:00Z",
+          "updated_at": "2024-01-15T10:50:00Z",
+          "metadata": {
+            "environment": "production",
+            "description": "Production deployment of custom trained model"
+          }
+        }
+      }
+    }
+  },
+  "error_examples": {
+    "400_bad_request": {
+      "description": "Invalid request format or parameters",
+      "example": {
+        "error": "Invalid file format",
+        "message": "Only image files are supported",
+        "details": {
+          "supported_formats": [
+            "jpg",
+            "jpeg",
+            "png",
+            "tiff",
+            "bmp"
+          ]
+        },
+        "timestamp": "2024-01-15T10:30:00Z"
+      }
+    },
+    "404_not_found": {
+      "description": "Resource not found",
+      "example": {
+        "error": "Resource not found",
+        "message": "Image with ID '123e4567-e89b-12d3-a456-426614174000' not found",
+        "timestamp": "2024-01-15T10:30:00Z"
+      }
+    },
+    "422_validation_error": {
+      "description": "Request validation failed",
+      "example": {
+        "error": "Validation error",
+        "message": "Request validation failed",
+        "details": {
+          "image_id": "Invalid UUID format",
+          "class_labels": "This field is required"
+        },
+        "timestamp": "2024-01-15T10:30:00Z"
+      }
+    },
+    "500_server_error": {
+      "description": "Internal server error",
+      "example": {
+        "error": "Internal server error",
+        "message": "An unexpected error occurred",
+        "details": {
+          "request_id": "req_12345"
+        },
+        "timestamp": "2024-01-15T10:30:00Z"
+      }
+    }
+  }
+}

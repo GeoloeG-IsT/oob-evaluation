@@ -1,0 +1,61 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "TURBOPACK=1 next dev --turbopack",
+    "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
+    "build:stats": "next build --profile && npm run analyze:stats",
+    "start": "next start",
+    "lint": "eslint",
+    "analyze": "cross-env ANALYZE=true next build",
+    "analyze:server": "next-bundle-analyzer server",
+    "analyze:client": "next-bundle-analyzer",
+    "analyze:stats": "npx webpack-bundle-analyzer .next/analyze/client.json -p 3001",
+    "build:profile": "next build --profile",
+    "build:debug": "next build --debug",
+    "size-limit": "size-limit",
+    "size-limit:report": "size-limit --why",
+    "perf:lighthouse": "lhci autorun",
+    "perf:bundle-stats": "bundle-stats",
+    "test:optimization": "node scripts/test-optimization.js",
+    "bundle:analyze": "node scripts/bundle-analysis.js",
+    "bundle:monitor": "node scripts/performance-monitor.js",
+    "ci:bundle-check": "node scripts/ci-bundle-check.js"
+  },
+  "dependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "next": "15.5.3"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.3",
+    "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.5.3",
+    "@size-limit/preset-app": "^11.2.0",
+    "bundle-stats": "^4.16.0",
+    "cross-env": "^7.0.3",
+    "lighthouse": "^12.2.1",
+    "@lhci/cli": "^0.15.0",
+    "webpack-bundle-analyzer": "^4.10.2",
+    "next-compose-plugins": "^2.2.1"
+  },
+  "bundleWatchSizes": [
+    {
+      "path": ".next/static/chunks/*.js",
+      "maxSize": "100kb"
+    },
+    {
+      "path": ".next/static/css/*.css",
+      "maxSize": "10kb"
+    }
+  ]
+}

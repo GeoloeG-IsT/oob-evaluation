@@ -1,0 +1,142 @@
+{
+  "timestamp": "2025-09-11T16:00:30.300Z",
+  "results": {
+    "configuration": [
+      {
+        "test": "Next.js Configuration",
+        "status": "PASSED",
+        "details": "Found next.config.ts"
+      },
+      {
+        "test": "Bundle Analyzer Integration",
+        "status": "PASSED",
+        "details": "Bundle analyzer configured"
+      },
+      {
+        "test": "Webpack Configuration",
+        "status": "PASSED",
+        "details": "Custom webpack config found"
+      },
+      {
+        "test": "Code Splitting Configuration",
+        "status": "PASSED",
+        "details": "Split chunks configured"
+      },
+      {
+        "test": "Size Limit Configuration",
+        "status": "PASSED",
+        "details": "Found .size-limit.js"
+      },
+      {
+        "test": "Lighthouse CI Configuration",
+        "status": "PASSED",
+        "details": "Found lighthouserc.js"
+      }
+    ],
+    "dependencies": [
+      {
+        "test": "Dependency: @next/bundle-analyzer",
+        "status": "PASSED",
+        "details": "Version: ^15.5.3"
+      },
+      {
+        "test": "Dependency: @size-limit/preset-next",
+        "status": "PASSED",
+        "details": "Version: ^11.1.6"
+      },
+      {
+        "test": "Dependency: bundle-stats",
+        "status": "PASSED",
+        "details": "Version: ^4.16.0"
+      },
+      {
+        "test": "Dependency: cross-env",
+        "status": "PASSED",
+        "details": "Version: ^7.0.3"
+      },
+      {
+        "test": "Dependency: webpack-bundle-analyzer",
+        "status": "PASSED",
+        "details": "Version: ^4.10.2"
+      },
+      {
+        "test": "Dependency: @lhci/cli",
+        "status": "PASSED",
+        "details": "Version: ^0.15.0"
+      },
+      {
+        "test": "Dependencies Installation",
+        "status": "WARNING",
+        "details": "Missing: @size-limit/preset-next, bundle-stats, cross-env, webpack-bundle-analyzer, @lhci/cli"
+      }
+    ],
+    "scripts": [
+      {
+        "test": "Script: bundle-analysis.js",
+        "status": "PASSED",
+        "details": "Script exists and executable"
+      },
+      {
+        "test": "Script: performance-monitor.js",
+        "status": "PASSED",
+        "details": "Script exists and executable"
+      },
+      {
+        "test": "Script: ci-bundle-check.js",
+        "status": "PASSED",
+        "details": "Script exists and executable"
+      },
+      {
+        "test": "NPM Script: build:analyze",
+        "status": "PASSED",
+        "details": "ANALYZE=true next build"
+      },
+      {
+        "test": "NPM Script: analyze",
+        "status": "PASSED",
+        "details": "cross-env ANALYZE=true next build"
+      },
+      {
+        "test": "NPM Script: size-limit",
+        "status": "PASSED",
+        "details": "size-limit"
+      },
+      {
+        "test": "NPM Script: perf:lighthouse",
+        "status": "PASSED",
+        "details": "lhci autorun"
+      }
+    ],
+    "optimization": [
+      {
+        "test": "Next.js Config Compilation",
+        "status": "WARNING",
+        "details": "Config may have TypeScript issues"
+      },
+      {
+        "test": "Bundle Analyzer Script",
+        "status": "PASSED",
+        "details": "Bundle analyzer can be instantiated"
+      },
+      {
+        "test": "Performance Monitor Script",
+        "status": "PASSED",
+        "details": "Performance monitor can be instantiated"
+      },
+      {
+        "test": "CI Bundle Check Script",
+        "status": "PASSED",
+        "details": "CI bundle checker can be instantiated"
+      }
+    ],
+    "overall": "UNKNOWN"
+  },
+  "summary": {
+    "total": 24,
+    "passed": 22,
+    "failed": 0,
+    "warnings": 2,
+    "passRate": 92,
+    "status": "WARNING"
+  }
+}

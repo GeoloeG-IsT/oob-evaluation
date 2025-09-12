@@ -1,0 +1,117 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ml-eval-celery-evaluation
+  namespace: default
+  annotations:
+    run.googleapis.com/ingress: none
+    run.googleapis.com/execution-environment: gen2
+  labels:
+    app: ml-eval-platform
+    component: celery-evaluation
+    env: production
+spec:
+  template:
+    metadata:
+      annotations:
+        # Resource allocation for evaluation tasks
+        run.googleapis.com/cpu: "2"
+        run.googleapis.com/memory: "3Gi"
+        run.googleapis.com/max-instances: "3"
+        run.googleapis.com/min-instances: "0"
+        
+        # Performance optimizations
+        run.googleapis.com/startup-cpu-boost: "true"
+        run.googleapis.com/execution-environment: "gen2"
+        
+        # VPC and database connectivity
+        run.googleapis.com/cloudsql-instances: "PROJECT_ID:REGION:ml-eval-db"
+        run.googleapis.com/vpc-access-connector: "projects/PROJECT_ID/locations/REGION/connectors/ml-eval-connector"
+        run.googleapis.com/vpc-access-egress: "private-ranges-only"
+        
+        # Evaluation timeout
+        run.googleapis.com/timeout: "3600s"
+      labels:
+        app: ml-eval-platform
+        component: celery-evaluation
+        env: production
+    spec:
+      containerConcurrency: 1  # Single evaluation task
+      timeoutSeconds: 3600     # 1 hour for evaluation
+      serviceAccountName: ml-eval-celery-sa@PROJECT_ID.iam.gserviceaccount.com
+      
+      containers:
+      - name: celery-evaluation
+        image: gcr.io/PROJECT_ID/ml-eval-celery:TAG
+        command: ["celery"]
+        args: ["-A", "src.celery_app", "worker", "--loglevel=info", "--queue=evaluation", "--concurrency=1", "--max-tasks-per-child=3"]
+        
+        # Resource allocation
+        resources:
+          requests:
+            cpu: "1"
+            memory: "1.5Gi"
+          limits:
+            cpu: "2"
+            memory: "3Gi"
+        
+        # Health checks
+        startupProbe:
+          exec:
+            command: ["celery", "-A", "src.celery_app", "inspect", "ping"]
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 6
+        
+        livenessProbe:
+          exec:
+            command: ["celery", "-A", "src.celery_app", "inspect", "ping"]
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 30
+          failureThreshold: 3
+        
+        # Environment variables
+        env:
+        - name: ENV
+          value: "production"
+        - name: CELERY_WORKER_TYPE
+          value: "evaluation"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ml-eval-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: ml-eval-secrets
+              key: redis-url
+        - name: GOOGLE_CLOUD_PROJECT
+          value: "PROJECT_ID"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: PYTHONDONTWRITEBYTECODE
+          value: "1"
+        - name: C_FORCE_ROOT
+          value: "0"
+        
+        # Volume mounts
+        volumeMounts:
+        - name: gcs-fuse
+          mountPath: /app/data
+          readOnly: false
+      
+      volumes:
+      - name: gcs-fuse
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          readOnly: false
+          volumeAttributes:
+            bucketName: "ml-eval-storage-PROJECT_ID"
+            mountOptions: "implicit-dirs"
+  
+  traffic:
+  - percent: 100
+    latestRevision: true

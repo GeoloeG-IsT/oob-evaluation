@@ -1,0 +1,169 @@
+# Cloud Run Job Configuration for Celery Inference Workers
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: ml-eval-celery-inference-production
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+    # VPC Connector for private network access
+    run.googleapis.com/vpc-access-connector: projects/PROJECT_ID/locations/us-central1/connectors/ml-eval-connector
+    run.googleapis.com/vpc-access-egress: private-ranges-only
+spec:
+  template:
+    metadata:
+      annotations:
+        # Resource limits (GPU-enabled for inference)
+        run.googleapis.com/memory: "12Gi"
+        run.googleapis.com/cpu: "6"
+        run.googleapis.com/gpu-type: "nvidia-t4"
+        run.googleapis.com/gpu-count: "1"
+        # Timeout for inference jobs
+        run.googleapis.com/timeout: "900s"
+        # Service account
+        run.googleapis.com/service-account: ml-eval-service@PROJECT_ID.iam.gserviceaccount.com
+        # Execution environment
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      template:
+        spec:
+          taskCount: 4  # Number of parallel inference workers
+          parallelism: 4
+          taskTimeout: "900s"  # 15 minutes timeout per task
+          restartPolicy: OnFailure
+          serviceAccountName: ml-eval-service@PROJECT_ID.iam.gserviceaccount.com
+          containers:
+          - name: celery-inference-worker
+            image: gcr.io/PROJECT_ID/ml-eval-celery:latest
+            command: 
+            - "celery"
+            - "-A"
+            - "src.celery_app"
+            - "worker"
+            - "--loglevel=info"
+            - "--queue=inference"
+            - "--concurrency=2"
+            - "--max-tasks-per-child=50"
+            - "--hostname=inference-worker-${CLOUD_RUN_TASK_INDEX}@%h"
+            env:
+            # Core application settings
+            - name: ENVIRONMENT
+              value: "production"
+            - name: PYTHONPATH
+              value: "/app"
+            
+            # GCP Configuration
+            - name: USE_SECRET_MANAGER
+              value: "true"
+            - name: GCP_PROJECT_ID
+              value: "PROJECT_ID"
+            - name: GCP_REGION
+              value: "us-central1"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/var/secrets/google/key.json"
+            
+            # Database (from Secret Manager)
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ml-eval-database-url
+                  key: latest
+            
+            # Redis (from Secret Manager)
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ml-eval-redis-url
+                  key: latest
+            
+            # Storage
+            - name: USE_GCS
+              value: "true"
+            - name: GCS_BUCKET_NAME
+              value: "ml-eval-platform-prod-storage"
+            - name: GCS_PROJECT_ID
+              value: "PROJECT_ID"
+            
+            # ML Settings (GPU-enabled)
+            - name: USE_GPU
+              value: "true"
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
+            - name: TORCH_HOME
+              value: "/tmp/.torch"
+            - name: GPU_MEMORY_FRACTION
+              value: "0.9"
+            
+            # Inference settings
+            - name: MAX_INFERENCE_JOBS
+              value: "10"
+            - name: INFERENCE_BATCH_SIZE
+              value: "64"
+            - name: INFERENCE_TIMEOUT_SECONDS
+              value: "900"
+            - name: MODEL_CACHE_SIZE
+              value: "10"
+            - name: MODEL_TIMEOUT_SECONDS
+              value: "600"
+            
+            # Celery settings
+            - name: CELERY_WORKER_CONCURRENCY
+              value: "2"
+            - name: CELERY_WORKER_MAX_TASKS
+              value: "50"
+            - name: CELERY_WORKER_PREFETCH
+              value: "1"
+            
+            # Logging
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: STRUCTURED_LOGGING
+              value: "true"
+            
+            resources:
+              limits:
+                memory: "12Gi"
+                cpu: "6000m"
+                nvidia.com/gpu: "1"
+              requests:
+                memory: "6Gi"
+                cpu: "3000m"
+                nvidia.com/gpu: "1"
+            
+            # Volume mounts
+            volumeMounts:
+            - name: google-cloud-key
+              mountPath: /var/secrets/google
+              readOnly: true
+            - name: tmp-storage
+              mountPath: /tmp
+            - name: model-cache
+              mountPath: /app/models
+            - name: image-cache
+              mountPath: /app/images
+            
+            # Security context
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                - ALL
+          
+          # Volumes
+          volumes:
+          - name: google-cloud-key
+            secret:
+              secretName: ml-eval-gcp-credentials
+          - name: tmp-storage
+            emptyDir:
+              sizeLimit: "5Gi"
+          - name: model-cache
+            emptyDir:
+              sizeLimit: "10Gi"
+          - name: image-cache
+            emptyDir:
+              sizeLimit: "5Gi"

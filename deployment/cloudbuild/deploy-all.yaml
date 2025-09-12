@@ -1,0 +1,289 @@
+# Cloud Build configuration for full deployment
+# This builds and deploys all services in the correct order
+
+steps:
+  # Step 1: Build all Docker images in parallel
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-backend'
+    args: [
+      'build',
+      '-f', 'docker/Dockerfile.backend.prod',
+      '-t', 'gcr.io/$PROJECT_ID/ml-eval-backend:$SHORT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/ml-eval-backend:latest',
+      '.'
+    ]
+    timeout: '1200s'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-frontend'
+    args: [
+      'build',
+      '-f', 'docker/Dockerfile.frontend.prod',
+      '-t', 'gcr.io/$PROJECT_ID/ml-eval-frontend:$SHORT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/ml-eval-frontend:latest',
+      '.'
+    ]
+    timeout: '900s'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-celery'
+    args: [
+      'build',
+      '-f', 'docker/Dockerfile.celery.prod',
+      '-t', 'gcr.io/$PROJECT_ID/ml-eval-celery:$SHORT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/ml-eval-celery:latest',
+      '.'
+    ]
+    timeout: '1500s'
+
+  # Step 2: Security scans in parallel
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'scan-backend'
+    args: [
+      'container', 'images', 'scan',
+      'gcr.io/$PROJECT_ID/ml-eval-backend:$SHORT_SHA',
+      '--format=json'
+    ]
+    waitFor: ['build-backend']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'scan-frontend'
+    args: [
+      'container', 'images', 'scan',
+      'gcr.io/$PROJECT_ID/ml-eval-frontend:$SHORT_SHA',
+      '--format=json'
+    ]
+    waitFor: ['build-frontend']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'scan-celery'
+    args: [
+      'container', 'images', 'scan',
+      'gcr.io/$PROJECT_ID/ml-eval-celery:$SHORT_SHA',
+      '--format=json'
+    ]
+    waitFor: ['build-celery']
+
+  # Step 3: Push images in parallel
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-backend'
+    args: ['push', 'gcr.io/$PROJECT_ID/ml-eval-backend:$SHORT_SHA']
+    waitFor: ['scan-backend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-frontend'
+    args: ['push', 'gcr.io/$PROJECT_ID/ml-eval-frontend:$SHORT_SHA']
+    waitFor: ['scan-frontend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-celery'
+    args: ['push', 'gcr.io/$PROJECT_ID/ml-eval-celery:$SHORT_SHA']
+    waitFor: ['scan-celery']
+
+  # Step 4: Prepare all service configurations
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'prepare-configs'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "📝 Preparing service configurations..."
+        
+        # Create temporary directory for processed configs
+        mkdir -p /tmp/configs
+        
+        # Process backend configuration
+        cp deployment/cloud-run/backend-service.yaml /tmp/configs/
+        sed -i "s/PROJECT_ID/$PROJECT_ID/g" /tmp/configs/backend-service.yaml
+        sed -i "s/REGION/$_REGION/g" /tmp/configs/backend-service.yaml
+        sed -i "s/TAG/$SHORT_SHA/g" /tmp/configs/backend-service.yaml
+        
+        # Process frontend configuration
+        cp deployment/cloud-run/frontend-service.yaml /tmp/configs/
+        sed -i "s/PROJECT_ID/$PROJECT_ID/g" /tmp/configs/frontend-service.yaml
+        sed -i "s/REGION/$_REGION/g" /tmp/configs/frontend-service.yaml
+        sed -i "s/TAG/$SHORT_SHA/g" /tmp/configs/frontend-service.yaml
+        
+        # Process Celery configurations
+        for service in training inference evaluation; do
+          cp deployment/cloud-run/celery-${service}-service.yaml /tmp/configs/
+          sed -i "s/PROJECT_ID/$PROJECT_ID/g" /tmp/configs/celery-${service}-service.yaml
+          sed -i "s/REGION/$_REGION/g" /tmp/configs/celery-${service}-service.yaml
+          sed -i "s/TAG/$SHORT_SHA/g" /tmp/configs/celery-${service}-service.yaml
+        done
+        
+        echo "✅ All configurations prepared"
+    waitFor: ['push-backend', 'push-frontend', 'push-celery']
+
+  # Step 5: Deploy backend first (core API)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'deploy-backend'
+    args: [
+      'run', 'services', 'replace',
+      '/tmp/configs/backend-service.yaml',
+      '--region=$_REGION'
+    ]
+    waitFor: ['prepare-configs']
+
+  # Step 6: Wait and verify backend is healthy
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'verify-backend'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🏥 Verifying backend health..."
+        sleep 30
+        
+        SERVICE_URL=$(gcloud run services describe ml-eval-backend --region=$_REGION --format='value(status.url)')
+        
+        for i in {1..10}; do
+          echo "Health check attempt $i..."
+          if curl -f "$SERVICE_URL/health" --connect-timeout 10 --max-time 30; then
+            echo "✅ Backend is healthy"
+            exit 0
+          fi
+          sleep 10
+        done
+        
+        echo "❌ Backend health check failed"
+        exit 1
+    waitFor: ['deploy-backend']
+
+  # Step 7: Deploy Celery workers (depends on backend being healthy)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'deploy-celery-training'
+    args: [
+      'run', 'services', 'replace',
+      '/tmp/configs/celery-training-service.yaml',
+      '--region=$_REGION'
+    ]
+    waitFor: ['verify-backend']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'deploy-celery-inference'
+    args: [
+      'run', 'services', 'replace',
+      '/tmp/configs/celery-inference-service.yaml',
+      '--region=$_REGION'
+    ]
+    waitFor: ['verify-backend']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'deploy-celery-evaluation'
+    args: [
+      'run', 'services', 'replace',
+      '/tmp/configs/celery-evaluation-service.yaml',
+      '--region=$_REGION'
+    ]
+    waitFor: ['verify-backend']
+
+  # Step 8: Deploy frontend (depends on backend)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'deploy-frontend'
+    args: [
+      'run', 'services', 'replace',
+      '/tmp/configs/frontend-service.yaml',
+      '--region=$_REGION'
+    ]
+    waitFor: ['verify-backend']
+
+  # Step 9: Final verification and testing
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'final-verification'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🔍 Final deployment verification..."
+        
+        # Wait for all services to settle
+        sleep 60
+        
+        # Get service URLs
+        BACKEND_URL=$(gcloud run services describe ml-eval-backend --region=$_REGION --format='value(status.url)')
+        FRONTEND_URL=$(gcloud run services describe ml-eval-frontend --region=$_REGION --format='value(status.url)')
+        
+        echo "🌐 Service URLs:"
+        echo "Backend:  $BACKEND_URL"
+        echo "Frontend: $FRONTEND_URL"
+        
+        # Test backend API
+        echo "Testing backend API..."
+        curl -f "$BACKEND_URL/health" || echo "Backend health check failed"
+        curl -f "$BACKEND_URL/docs" || echo "Backend docs check failed"
+        
+        # Test frontend
+        echo "Testing frontend..."
+        curl -f "$FRONTEND_URL/api/health" || echo "Frontend health check failed"
+        
+        # Check Celery services status
+        echo "Checking Celery services..."
+        for service in ml-eval-celery-training ml-eval-celery-inference ml-eval-celery-evaluation; do
+          STATUS=$(gcloud run services describe $service --region=$_REGION --format='value(status.conditions[0].status)')
+          echo "$service: $STATUS"
+        done
+        
+        echo "✅ Full deployment completed successfully!"
+        echo "🚀 ML Evaluation Platform is live at: $FRONTEND_URL"
+    waitFor: ['deploy-celery-training', 'deploy-celery-inference', 'deploy-celery-evaluation', 'deploy-frontend']
+
+  # Step 10: Deployment notification (optional)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'notify-deployment'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "📢 Sending deployment notification..."
+        
+        # Get service URLs
+        BACKEND_URL=$(gcloud run services describe ml-eval-backend --region=$_REGION --format='value(status.url)')
+        FRONTEND_URL=$(gcloud run services describe ml-eval-frontend --region=$_REGION --format='value(status.url)')
+        
+        # Create deployment summary
+        cat <<EOF > /tmp/deployment-summary.json
+        {
+          "deployment_id": "$BUILD_ID",
+          "commit_sha": "$SHORT_SHA",
+          "region": "$_REGION",
+          "timestamp": "$(date -Iseconds)",
+          "services": {
+            "backend": "$BACKEND_URL",
+            "frontend": "$FRONTEND_URL"
+          },
+          "status": "success"
+        }
+        EOF
+        
+        echo "Deployment Summary:"
+        cat /tmp/deployment-summary.json
+        
+        # Here you could send to Slack, PagerDuty, etc.
+        echo "✅ Deployment notification completed"
+    waitFor: ['final-verification']
+
+# Build options for full deployment
+options:
+  machineType: 'E2_HIGHCPU_32'
+  diskSizeGb: 200
+  env:
+    - 'DOCKER_BUILDKIT=1'
+  logging: CLOUD_LOGGING_ONLY
+  logStreamingOption: STREAM_ON
+
+# Substitutions
+substitutions:
+  _REGION: 'us-central1'
+
+# Extended timeout for full deployment
+timeout: '3600s'  # 1 hour
+
+# Service account
+serviceAccount: 'projects/$PROJECT_ID/serviceAccounts/ml-eval-cloudbuild@$PROJECT_ID.iam.gserviceaccount.com'
+
+# Tags
+tags:
+  - 'full-deployment'
+  - 'production'
+  - 'ml-eval-platform'

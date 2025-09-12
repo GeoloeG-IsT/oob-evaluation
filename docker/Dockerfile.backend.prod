@@ -1,0 +1,86 @@
+# Production-optimized backend for GCP Cloud Run
+# Multi-stage build to minimize image size and improve security
+
+# Build stage
+FROM python:3.11-slim as builder
+
+# Set build arguments
+ARG BUILD_ENV=production
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy and install Python dependencies
+COPY backend/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Production stage
+FROM python:3.11-slim as production
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user with specific UID/GID for Cloud Run
+RUN groupadd -r mluser -g 1000 && \
+    useradd -r -g mluser -u 1000 -s /bin/bash -c "ML User" mluser
+
+# Copy virtual environment from builder stage
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Set working directory
+WORKDIR /app
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/data/models /app/data/images /app/data/.torch /tmp/uploads \
+    && chown -R mluser:mluser /app
+
+# Copy application code
+COPY --chown=mluser:mluser backend/ .
+
+# Security hardening
+RUN chmod -R 755 /app \
+    && chmod -R 700 /app/data \
+    && find /app -name "*.py" -exec chmod 644 {} \;
+
+# Switch to non-root user
+USER mluser
+
+# Set environment variables for production
+ENV PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    TORCH_HOME=/app/data/.torch \
+    CUDA_VISIBLE_DEVICES="" \
+    PORT=8080 \
+    ENV=production
+
+# Health check optimized for Cloud Run
+HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=2 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
+
+# Expose Cloud Run port
+EXPOSE 8080
+
+# Use exec form for proper signal handling
+CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT} --workers 1 --access-log --log-level info"]

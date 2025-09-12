@@ -4,7 +4,7 @@ We are going to use:
 
 - Netx.js/React/Typescript for the frontend
 - fastapi/python for the backend (all relevant APIs)
-- supabase/postgresql for the database
+- postgresql for the database
 - celery for the task queue
 - docker for the containerization and docker compose for the orchestration
 - github actions for the CI/CD
@@ -17,5 +17,5 @@ The project will be a single project with the following structure:
 - celery/
 - docker/
 - .env
-- .env.local
 - .env.development
+- .env.production

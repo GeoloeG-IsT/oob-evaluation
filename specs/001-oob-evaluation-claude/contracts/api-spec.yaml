@@ -1,0 +1,1228 @@
+openapi: 3.0.3
+info:
+  title: ML Evaluation Platform API
+  description: API for object detection and segmentation model evaluation platform
+  version: 1.0.0
+  contact:
+    name: ML Evaluation Platform
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.ml-eval.cloud
+    description: Production server
+
+paths:
+  # Image Management Endpoints
+  /api/v1/images:
+    post:
+      summary: Upload image files
+      description: Upload images to the server for processing and evaluation
+      operationId: uploadImages
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                dataset_split:
+                  type: string
+                  enum: [train, validation, test]
+                  default: train
+              required:
+                - files
+      responses:
+        '201':
+          description: Images uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageUploadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+
+    get:
+      summary: List images
+      description: Retrieve list of uploaded images with filtering
+      operationId: listImages
+      parameters:
+        - name: dataset_split
+          in: query
+          schema:
+            type: string
+            enum: [train, validation, test]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 1000
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of images
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageListResponse'
+
+  /api/v1/images/{image_id}:
+    get:
+      summary: Get image details
+      description: Retrieve detailed information about a specific image
+      operationId: getImage
+      parameters:
+        - name: image_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Image details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Image'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Annotation Endpoints
+  /api/v1/annotations:
+    post:
+      summary: Create manual annotation
+      description: Create user annotation for an image
+      operationId: createAnnotation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnnotationRequest'
+      responses:
+        '201':
+          description: Annotation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Annotation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    get:
+      summary: List annotations
+      description: Retrieve annotations with filtering options
+      operationId: listAnnotations
+      parameters:
+        - name: image_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: model_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: creation_method
+          in: query
+          schema:
+            type: string
+            enum: [user, model]
+      responses:
+        '200':
+          description: List of annotations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnotationListResponse'
+
+  /api/v1/annotations/assisted:
+    post:
+      summary: Generate assisted annotation
+      description: Use pre-trained model to generate annotation suggestions
+      operationId: generateAssistedAnnotation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistedAnnotationRequest'
+      responses:
+        '201':
+          description: Assisted annotation generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Annotation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # Model Management Endpoints
+  /api/v1/models:
+    get:
+      summary: List available models
+      description: Retrieve list of available models for inference and training
+      operationId: listModels
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [detection, segmentation]
+        - name: framework
+          in: query
+          schema:
+            type: string
+            enum: [YOLO11, YOLO12, RT-DETR, SAM2]
+      responses:
+        '200':
+          description: List of models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelListResponse'
+
+  /api/v1/models/{model_id}:
+    get:
+      summary: Get model details
+      description: Retrieve detailed information about a specific model
+      operationId: getModel
+      parameters:
+        - name: model_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Model details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Inference Endpoints
+  /api/v1/inference/single:
+    post:
+      summary: Run single image inference
+      description: Run model inference on a single image
+      operationId: runSingleInference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SingleInferenceRequest'
+      responses:
+        '200':
+          description: Inference completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/inference/batch:
+    post:
+      summary: Run batch inference
+      description: Run model inference on multiple images
+      operationId: runBatchInference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchInferenceRequest'
+      responses:
+        '202':
+          description: Batch inference job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceJob'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/inference/jobs/{job_id}:
+    get:
+      summary: Get inference job status
+      description: Monitor batch inference job progress
+      operationId: getInferenceJob
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceJob'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Training Endpoints
+  /api/v1/training/jobs:
+    post:
+      summary: Start model training
+      description: Initiate fine-tuning of a model with user annotations
+      operationId: startTraining
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainingRequest'
+      responses:
+        '202':
+          description: Training job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingJob'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/training/jobs/{job_id}:
+    get:
+      summary: Get training job status
+      description: Monitor training job progress and logs
+      operationId: getTrainingJob
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Training job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingJob'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Performance Evaluation Endpoints
+  /api/v1/evaluation/metrics:
+    post:
+      summary: Calculate performance metrics
+      description: Evaluate model performance on test data
+      operationId: calculateMetrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricsRequest'
+      responses:
+        '200':
+          description: Performance metrics calculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/evaluation/compare:
+    post:
+      summary: Compare model performance
+      description: Compare performance metrics between multiple models
+      operationId: compareModels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelComparisonRequest'
+      responses:
+        '200':
+          description: Model comparison results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelComparisonResponse'
+
+  # Model Deployment Endpoints
+  /api/v1/deployments:
+    post:
+      summary: Deploy model
+      description: Deploy trained model as REST API endpoint
+      operationId: deployModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentRequest'
+      responses:
+        '202':
+          description: Deployment initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deployment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    get:
+      summary: List deployments
+      description: Retrieve list of deployed models
+      operationId: listDeployments
+      responses:
+        '200':
+          description: List of deployments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentListResponse'
+
+  /api/v1/deployments/{deployment_id}:
+    get:
+      summary: Get deployment details
+      description: Retrieve deployment status and metrics
+      operationId: getDeployment
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deployment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deployment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update deployment
+      description: Update deployment configuration or status
+      operationId: updateDeployment
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentUpdateRequest'
+      responses:
+        '200':
+          description: Deployment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deployment'
+
+  # Export Endpoints
+  /api/v1/export/annotations:
+    post:
+      summary: Export annotations
+      description: Export annotations in standard formats
+      operationId: exportAnnotations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '200':
+          description: Export file
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  schemas:
+    Image:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        file_path:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+        format:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+        dataset_split:
+          type: string
+          enum: [train, validation, test]
+        upload_timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+      required:
+        - id
+        - filename
+        - file_path
+        - file_size
+        - format
+        - width
+        - height
+        - dataset_split
+        - upload_timestamp
+
+    ImageUploadResponse:
+      type: object
+      properties:
+        uploaded_images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+        total_count:
+          type: integer
+        success_count:
+          type: integer
+        failed_count:
+          type: integer
+      required:
+        - uploaded_images
+        - total_count
+        - success_count
+        - failed_count
+
+    ImageListResponse:
+      type: object
+      properties:
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+        total_count:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required:
+        - images
+        - total_count
+        - limit
+        - offset
+
+    Annotation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        image_id:
+          type: string
+          format: uuid
+        bounding_boxes:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoundingBox'
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Segment'
+        class_labels:
+          type: array
+          items:
+            type: string
+        confidence_scores:
+          type: array
+          items:
+            type: number
+            format: float
+        creation_method:
+          type: string
+          enum: [user, model]
+        model_id:
+          type: string
+          format: uuid
+        user_tag:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+      required:
+        - id
+        - image_id
+        - class_labels
+        - creation_method
+        - created_at
+
+    BoundingBox:
+      type: object
+      properties:
+        x:
+          type: number
+          format: float
+        y:
+          type: number
+          format: float
+        width:
+          type: number
+          format: float
+        height:
+          type: number
+          format: float
+        class_id:
+          type: integer
+        confidence:
+          type: number
+          format: float
+      required:
+        - x
+        - y
+        - width
+        - height
+
+    Segment:
+      type: object
+      properties:
+        polygon:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: float
+        mask:
+          type: string
+          description: Base64 encoded mask
+        class_id:
+          type: integer
+        confidence:
+          type: number
+          format: float
+
+    CreateAnnotationRequest:
+      type: object
+      properties:
+        image_id:
+          type: string
+          format: uuid
+        bounding_boxes:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoundingBox'
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Segment'
+        class_labels:
+          type: array
+          items:
+            type: string
+        user_tag:
+          type: string
+        metadata:
+          type: object
+      required:
+        - image_id
+        - class_labels
+
+    AssistedAnnotationRequest:
+      type: object
+      properties:
+        image_id:
+          type: string
+          format: uuid
+        model_id:
+          type: string
+          format: uuid
+        confidence_threshold:
+          type: number
+          format: float
+          default: 0.5
+      required:
+        - image_id
+        - model_id
+
+    AnnotationListResponse:
+      type: object
+      properties:
+        annotations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Annotation'
+        total_count:
+          type: integer
+      required:
+        - annotations
+        - total_count
+
+    Model:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [detection, segmentation]
+        variant:
+          type: string
+          enum: [nano, small, medium, large, xl]
+        version:
+          type: string
+        framework:
+          type: string
+          enum: [YOLO11, YOLO12, RT-DETR, SAM2]
+        model_path:
+          type: string
+        training_status:
+          type: string
+          enum: [pre-trained, training, trained, failed]
+        performance_metrics:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+      required:
+        - id
+        - name
+        - type
+        - variant
+        - version
+        - framework
+        - model_path
+        - training_status
+        - created_at
+        - updated_at
+
+    ModelListResponse:
+      type: object
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/Model'
+        total_count:
+          type: integer
+      required:
+        - models
+        - total_count
+
+    SingleInferenceRequest:
+      type: object
+      properties:
+        image_id:
+          type: string
+          format: uuid
+        model_id:
+          type: string
+          format: uuid
+        confidence_threshold:
+          type: number
+          format: float
+          default: 0.5
+      required:
+        - image_id
+        - model_id
+
+    BatchInferenceRequest:
+      type: object
+      properties:
+        image_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        model_id:
+          type: string
+          format: uuid
+        confidence_threshold:
+          type: number
+          format: float
+          default: 0.5
+      required:
+        - image_ids
+        - model_id
+
+    InferenceResult:
+      type: object
+      properties:
+        image_id:
+          type: string
+          format: uuid
+        model_id:
+          type: string
+          format: uuid
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Annotation'
+        execution_time:
+          type: number
+          format: float
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - image_id
+        - model_id
+        - predictions
+        - execution_time
+        - timestamp
+
+    InferenceJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        model_id:
+          type: string
+          format: uuid
+        target_images:
+          type: array
+          items:
+            type: string
+            format: uuid
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        progress_percentage:
+          type: number
+          format: float
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InferenceResult'
+        execution_logs:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+      required:
+        - id
+        - model_id
+        - target_images
+        - status
+        - progress_percentage
+        - created_at
+
+    TrainingRequest:
+      type: object
+      properties:
+        base_model_id:
+          type: string
+          format: uuid
+        dataset_id:
+          type: string
+          format: uuid
+        hyperparameters:
+          type: object
+          properties:
+            epochs:
+              type: integer
+              default: 100
+            batch_size:
+              type: integer
+              default: 16
+            learning_rate:
+              type: number
+              format: float
+              default: 0.001
+            patience:
+              type: integer
+              default: 10
+          required:
+            - epochs
+            - batch_size
+            - learning_rate
+        metadata:
+          type: object
+      required:
+        - base_model_id
+        - dataset_id
+        - hyperparameters
+
+    TrainingJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        base_model_id:
+          type: string
+          format: uuid
+        dataset_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        progress_percentage:
+          type: number
+          format: float
+        hyperparameters:
+          type: object
+        execution_logs:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        result_model_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+      required:
+        - id
+        - base_model_id
+        - dataset_id
+        - status
+        - progress_percentage
+        - hyperparameters
+        - created_at
+
+    MetricsRequest:
+      type: object
+      properties:
+        model_id:
+          type: string
+          format: uuid
+        dataset_id:
+          type: string
+          format: uuid
+        metric_types:
+          type: array
+          items:
+            type: string
+            enum: [mAP, mAP@50, mAP@50:95, IoU, precision, recall, F1, execution_time]
+        iou_threshold:
+          type: number
+          format: float
+          default: 0.5
+      required:
+        - model_id
+        - dataset_id
+        - metric_types
+
+    MetricsResponse:
+      type: object
+      properties:
+        model_id:
+          type: string
+          format: uuid
+        dataset_id:
+          type: string
+          format: uuid
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerformanceMetric'
+        evaluation_timestamp:
+          type: string
+          format: date-time
+      required:
+        - model_id
+        - dataset_id
+        - metrics
+        - evaluation_timestamp
+
+    PerformanceMetric:
+      type: object
+      properties:
+        metric_type:
+          type: string
+        metric_value:
+          type: number
+          format: float
+        threshold:
+          type: number
+          format: float
+        class_name:
+          type: string
+        metadata:
+          type: object
+      required:
+        - metric_type
+        - metric_value
+
+    ModelComparisonRequest:
+      type: object
+      properties:
+        model_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        dataset_id:
+          type: string
+          format: uuid
+        metric_types:
+          type: array
+          items:
+            type: string
+            enum: [mAP, mAP@50, mAP@50:95, IoU, precision, recall, F1, execution_time]
+      required:
+        - model_ids
+        - dataset_id
+        - metric_types
+
+    ModelComparisonResponse:
+      type: object
+      properties:
+        comparison_results:
+          type: array
+          items:
+            type: object
+            properties:
+              model_id:
+                type: string
+                format: uuid
+              model_name:
+                type: string
+              metrics:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PerformanceMetric'
+        best_performing_model:
+          type: string
+          format: uuid
+        evaluation_timestamp:
+          type: string
+          format: date-time
+      required:
+        - comparison_results
+        - evaluation_timestamp
+
+    DeploymentRequest:
+      type: object
+      properties:
+        model_id:
+          type: string
+          format: uuid
+        version:
+          type: string
+        configuration:
+          type: object
+          properties:
+            replicas:
+              type: integer
+              default: 1
+            cpu_limit:
+              type: string
+              default: "1000m"
+            memory_limit:
+              type: string
+              default: "2Gi"
+            gpu_required:
+              type: boolean
+              default: false
+          required:
+            - replicas
+        metadata:
+          type: object
+      required:
+        - model_id
+        - version
+        - configuration
+
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        model_id:
+          type: string
+          format: uuid
+        endpoint_url:
+          type: string
+        version:
+          type: string
+        status:
+          type: string
+          enum: [deploying, active, inactive, failed]
+        configuration:
+          type: object
+        performance_monitoring:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+      required:
+        - id
+        - model_id
+        - endpoint_url
+        - version
+        - status
+        - configuration
+        - created_at
+        - updated_at
+
+    DeploymentListResponse:
+      type: object
+      properties:
+        deployments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Deployment'
+        total_count:
+          type: integer
+      required:
+        - deployments
+        - total_count
+
+    DeploymentUpdateRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, inactive]
+        configuration:
+          type: object
+
+    ExportRequest:
+      type: object
+      properties:
+        image_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        format:
+          type: string
+          enum: [COCO, YOLO, Pascal VOC]
+        include_predictions:
+          type: boolean
+          default: false
+        model_id:
+          type: string
+          format: uuid
+      required:
+        - image_ids
+        - format
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - error
+        - message
+        - timestamp
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    PayloadTooLarge:
+      description: Request payload too large
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []

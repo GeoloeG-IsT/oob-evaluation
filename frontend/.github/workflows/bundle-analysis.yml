@@ -1,0 +1,292 @@
+name: Bundle Analysis and Performance Monitoring
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC to track performance trends
+    - cron: '0 2 * * *'
+
+jobs:
+  bundle-analysis:
+    name: Bundle Analysis & Performance Check
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch history for baseline comparison
+          fetch-depth: 50
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci --prefer-offline --no-audit
+      
+      - name: Cache Next.js build
+        uses: actions/cache@v3
+        with:
+          path: |
+            frontend/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/**/*.ts', 'frontend/**/*.tsx', 'frontend/**/*.js', 'frontend/**/*.jsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-
+      
+      - name: Build application
+        working-directory: frontend
+        run: npm run build
+        env:
+          NODE_ENV: production
+          ANALYZE: false
+      
+      - name: Run bundle analysis
+        working-directory: frontend
+        run: node scripts/bundle-analysis.js
+        continue-on-error: true
+      
+      - name: Run performance monitoring
+        working-directory: frontend
+        run: node scripts/performance-monitor.js
+        continue-on-error: true
+      
+      - name: Run CI bundle check
+        working-directory: frontend
+        run: node scripts/ci-bundle-check.js --format=github --pr-comment
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run Lighthouse CI
+        working-directory: frontend
+        run: |
+          npm run build
+          npm start &
+          sleep 10
+          npx lhci autorun
+        continue-on-error: true
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+      
+      - name: Check bundle size limits
+        working-directory: frontend
+        run: npm run size-limit
+        continue-on-error: true
+      
+      - name: Upload bundle analysis reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: bundle-analysis-reports
+          path: |
+            frontend/reports/
+            frontend/ci-reports/
+            frontend/performance-data/
+            frontend/.lighthouseci/
+          retention-days: 30
+      
+      - name: Comment PR with bundle analysis
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'frontend/ci-reports/pr-comment.md';
+            
+            if (fs.existsSync(path)) {
+              const comment = fs.readFileSync(path, 'utf8');
+              
+              // Find existing comment
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+              
+              const existingComment = comments.find(comment => 
+                comment.body.includes('Bundle Analysis Report')
+              );
+              
+              if (existingComment) {
+                // Update existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existingComment.id,
+                  body: comment
+                });
+              } else {
+                // Create new comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: comment
+                });
+              }
+            }
+      
+      - name: Update baseline on main branch
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        working-directory: frontend
+        run: |
+          # Copy current reports as new baseline
+          mkdir -p ci-reports
+          cp ci-reports/ci-report.json ci-reports/baseline.json
+          
+          # Commit baseline if changed
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if ! git diff --quiet HEAD -- ci-reports/baseline.json; then
+            git add ci-reports/baseline.json
+            git commit -m "Update bundle analysis baseline [skip ci]"
+            git push
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Check for performance regressions
+        working-directory: frontend
+        run: |
+          if [ -f "ci-reports/ci-report.json" ]; then
+            STATUS=$(node -e "
+              const report = require('./ci-reports/ci-report.json');
+              console.log(report.results.budgetCheck === 'FAILED' || 
+                         report.results.performanceCheck === 'FAILED' ? 'failed' : 'passed');
+            ")
+            
+            if [ "$STATUS" = "failed" ]; then
+              echo "❌ Bundle analysis failed - check the reports for details"
+              exit 1
+            else
+              echo "✅ Bundle analysis passed"
+            fi
+          fi
+
+  bundle-visualization:
+    name: Bundle Visualization
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci --prefer-offline --no-audit
+      
+      - name: Build with bundle analyzer
+        working-directory: frontend
+        run: npm run analyze
+        env:
+          ANALYZE: true
+      
+      - name: Upload bundle analyzer report
+        uses: actions/upload-artifact@v3
+        with:
+          name: bundle-analyzer-report
+          path: |
+            frontend/.next/analyze/
+          retention-days: 14
+
+  performance-comparison:
+    name: Performance Comparison
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies and build PR
+        working-directory: frontend
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm run build
+      
+      - name: Run PR performance test
+        working-directory: frontend
+        run: node scripts/performance-monitor.js > pr-performance.json
+      
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+      
+      - name: Install dependencies and build base
+        working-directory: frontend
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm run build
+      
+      - name: Run base performance test
+        working-directory: frontend
+        run: node scripts/performance-monitor.js > base-performance.json
+      
+      - name: Compare performance
+        working-directory: frontend
+        run: |
+          node -e "
+            const pr = require('./pr-performance.json');
+            const base = require('./base-performance.json');
+            
+            const comparison = {
+              buildTime: {
+                pr: pr.metrics.build.buildTime,
+                base: base.metrics.build.buildTime,
+                change: ((pr.metrics.build.buildTime - base.metrics.build.buildTime) / base.metrics.build.buildTime) * 100
+              },
+              bundleSize: {
+                pr: pr.metrics.bundle.totalSize,
+                base: base.metrics.bundle.totalSize,
+                change: ((pr.metrics.bundle.totalSize - base.metrics.bundle.totalSize) / base.metrics.bundle.totalSize) * 100
+              }
+            };
+            
+            console.log('Performance Comparison:');
+            console.log('Build Time Change: ' + comparison.buildTime.change.toFixed(2) + '%');
+            console.log('Bundle Size Change: ' + comparison.bundleSize.change.toFixed(2) + '%');
+            
+            require('fs').writeFileSync('performance-comparison.json', JSON.stringify(comparison, null, 2));
+          "
+      
+      - name: Upload performance comparison
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-comparison
+          path: |
+            frontend/pr-performance.json
+            frontend/base-performance.json
+            frontend/performance-comparison.json
+          retention-days: 7

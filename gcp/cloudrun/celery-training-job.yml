@@ -1,0 +1,160 @@
+# Cloud Run Job Configuration for Celery Training Workers
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: ml-eval-celery-training-production
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+    # VPC Connector for private network access
+    run.googleapis.com/vpc-access-connector: projects/PROJECT_ID/locations/us-central1/connectors/ml-eval-connector
+    run.googleapis.com/vpc-access-egress: private-ranges-only
+spec:
+  template:
+    metadata:
+      annotations:
+        # Resource limits (GPU-enabled for training)
+        run.googleapis.com/memory: "16Gi"
+        run.googleapis.com/cpu: "8"
+        run.googleapis.com/gpu-type: "nvidia-t4"
+        run.googleapis.com/gpu-count: "1"
+        # Timeout for long-running training jobs
+        run.googleapis.com/timeout: "3600s"
+        # Service account
+        run.googleapis.com/service-account: ml-eval-service@PROJECT_ID.iam.gserviceaccount.com
+        # Execution environment
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      template:
+        spec:
+          taskCount: 2  # Number of parallel training workers
+          parallelism: 2
+          taskTimeout: "3600s"  # 1 hour timeout per task
+          restartPolicy: OnFailure
+          serviceAccountName: ml-eval-service@PROJECT_ID.iam.gserviceaccount.com
+          containers:
+          - name: celery-training-worker
+            image: gcr.io/PROJECT_ID/ml-eval-celery:latest
+            command: 
+            - "celery"
+            - "-A"
+            - "src.celery_app"
+            - "worker"
+            - "--loglevel=info"
+            - "--queue=training"
+            - "--concurrency=1"
+            - "--max-tasks-per-child=10"
+            - "--hostname=training-worker-${CLOUD_RUN_TASK_INDEX}@%h"
+            env:
+            # Core application settings
+            - name: ENVIRONMENT
+              value: "production"
+            - name: PYTHONPATH
+              value: "/app"
+            
+            # GCP Configuration
+            - name: USE_SECRET_MANAGER
+              value: "true"
+            - name: GCP_PROJECT_ID
+              value: "PROJECT_ID"
+            - name: GCP_REGION
+              value: "us-central1"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/var/secrets/google/key.json"
+            
+            # Database (from Secret Manager)
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ml-eval-database-url
+                  key: latest
+            
+            # Redis (from Secret Manager)
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ml-eval-redis-url
+                  key: latest
+            
+            # Storage
+            - name: USE_GCS
+              value: "true"
+            - name: GCS_BUCKET_NAME
+              value: "ml-eval-platform-prod-storage"
+            - name: GCS_PROJECT_ID
+              value: "PROJECT_ID"
+            
+            # ML Settings (GPU-enabled)
+            - name: USE_GPU
+              value: "true"
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
+            - name: TORCH_HOME
+              value: "/tmp/.torch"
+            - name: GPU_MEMORY_FRACTION
+              value: "0.9"
+            
+            # Training settings
+            - name: MAX_TRAINING_JOBS
+              value: "2"
+            - name: DEFAULT_EPOCHS
+              value: "200"
+            - name: DEFAULT_BATCH_SIZE
+              value: "32"
+            
+            # Celery settings
+            - name: CELERY_WORKER_CONCURRENCY
+              value: "1"
+            - name: CELERY_WORKER_MAX_TASKS
+              value: "10"
+            - name: CELERY_WORKER_PREFETCH
+              value: "1"
+            
+            # Logging
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: STRUCTURED_LOGGING
+              value: "true"
+            
+            resources:
+              limits:
+                memory: "16Gi"
+                cpu: "8000m"
+                nvidia.com/gpu: "1"
+              requests:
+                memory: "8Gi"
+                cpu: "4000m"
+                nvidia.com/gpu: "1"
+            
+            # Volume mounts
+            volumeMounts:
+            - name: google-cloud-key
+              mountPath: /var/secrets/google
+              readOnly: true
+            - name: tmp-storage
+              mountPath: /tmp
+            - name: model-cache
+              mountPath: /app/models
+            
+            # Security context
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                - ALL
+          
+          # Volumes
+          volumes:
+          - name: google-cloud-key
+            secret:
+              secretName: ml-eval-gcp-credentials
+          - name: tmp-storage
+            emptyDir:
+              sizeLimit: "10Gi"
+          - name: model-cache
+            emptyDir:
+              sizeLimit: "5Gi"
